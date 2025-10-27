@@ -24,14 +24,14 @@ export const WidgetManager = ({
   onMoveWidget
 }: WidgetManagerProps) => (
   <Drawer open={open} onOpenChange={onOpenChange}>
-    <DrawerContent className="border-border max-h-[85vh]">
+    <DrawerContent className="border-border">
       <DrawerHeader>
         <DrawerTitle>Organisation du dashboard</DrawerTitle>
         <DrawerDescription>
           Activez, désactivez et réorganisez les widgets visibles. Les préférences sont conservées localement.
         </DrawerDescription>
       </DrawerHeader>
-      <ScrollArea className="flex-1 px-6 pb-6">
+      <ScrollArea className="max-h-[60vh] px-6">
         <div className="grid gap-4 pb-6">
           {availableWidgets.map(widget => {
             const enabled = activeWidgetIds.includes(widget.id);
