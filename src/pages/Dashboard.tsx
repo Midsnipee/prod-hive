@@ -223,14 +223,9 @@ const availableWidgets: DashboardWidgetConfig[] = [
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>([]);
   const [filters, setFilters] = useState({ period: "this-quarter", category: "all", supplier: "all", site: "all" });
 
   const widgets = availableWidgets;
-
-  const handleToggleCollapse = (id: string) => {
-    setCollapsedWidgets(prev => prev.includes(id) ? prev.filter(widgetId => widgetId !== id) : [...prev, id]);
-  };
 
   return (
     <div className="space-y-6">
@@ -242,7 +237,7 @@ const Dashboard = () => {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Personnalisez votre tableau de bord pour piloter vos opérations.
+            Surveillez les indicateurs clés de vos opérations en un coup d'œil.
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <Badge variant="secondary" className="flex items-center gap-1">
@@ -271,8 +266,6 @@ const Dashboard = () => {
             key={widget.id}
             config={widget}
             filters={filters}
-            collapsed={collapsedWidgets.includes(widget.id)}
-            onToggleCollapse={() => handleToggleCollapse(widget.id)}
             onNavigate={path => navigate(path)}
           />
         ))}
