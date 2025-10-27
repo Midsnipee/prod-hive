@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  ChevronDown,
+  ChevronUp,
   MoveRight,
   XCircle
 } from "lucide-react";
@@ -42,6 +44,8 @@ export interface DashboardWidgetConfig {
 interface DashboardWidgetProps {
   config: DashboardWidgetConfig;
   filters: DashboardFilters;
+  collapsed?: boolean;
+  onToggleCollapse: () => void;
   onNavigate: (path: string) => void;
 }
 
@@ -54,12 +58,12 @@ const sizeToColumn: Record<DashboardWidgetConfig["size"], string> = {
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
 
-export const DashboardWidget = ({ config, filters, onNavigate }: DashboardWidgetProps) => {
+export const DashboardWidget = ({ config, filters, collapsed, onToggleCollapse, onNavigate }: DashboardWidgetProps) => {
   const Icon = config.icon;
 
   return (
     <Card className={cn("border-border shadow-sm transition-all", sizeToColumn[config.size])}>
-      <CardHeader className="gap-4 pb-4">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 pb-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Icon className="h-4 w-4" />
@@ -68,10 +72,15 @@ export const DashboardWidget = ({ config, filters, onNavigate }: DashboardWidget
           <CardTitle className="text-lg font-semibold">{config.title}</CardTitle>
           <p className="text-sm text-muted-foreground max-w-[520px]">{config.description}</p>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleCollapse}>
+          {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+        </Button>
       </CardHeader>
-      <CardContent className="pt-0">
-        {config.render({ filters, onNavigate })}
-      </CardContent>
+      {!collapsed && (
+        <CardContent className="pt-0">
+          {config.render({ filters, onNavigate })}
+        </CardContent>
+      )}
     </Card>
   );
 };
