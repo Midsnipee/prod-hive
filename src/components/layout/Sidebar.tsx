@@ -8,6 +8,7 @@ import {
   UserCheck,
   Settings
 } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -23,9 +24,12 @@ export const Sidebar = () => {
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      <div className="p-6 border-b border-sidebar-border">
-        <h1 className="text-xl font-bold text-sidebar-foreground">StockManager</h1>
-        <p className="text-xs text-sidebar-foreground/60 mt-1">Gestion de stock</p>
+      <div className="p-4 border-b border-sidebar-border">
+        <img 
+          src={logo} 
+          alt="Centre Jean PERRIN" 
+          className="w-full h-auto"
+        />
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
@@ -38,10 +42,10 @@ export const Sidebar = () => {
               key={item.name}
               to={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                  ? "bg-primary/10 text-primary border-l-2 border-primary"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground hover:translate-x-1"
               )}
             >
               <Icon className="h-5 w-5" />
@@ -53,12 +57,12 @@ export const Sidebar = () => {
 
       <div className="p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3 py-2">
-          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-sidebar-accent-foreground font-medium text-sm">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium text-sm">
             AD
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">Admin</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">admin@exemple.fr</p>
+            <p className="text-xs text-muted-foreground truncate">admin@exemple.fr</p>
           </div>
         </div>
       </div>

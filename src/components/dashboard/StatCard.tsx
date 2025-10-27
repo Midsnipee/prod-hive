@@ -14,6 +14,7 @@ interface StatCardProps {
   };
   className?: string;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 export const StatCard = ({ 
@@ -23,7 +24,8 @@ export const StatCard = ({
   description, 
   trend,
   className,
-  onClick 
+  onClick,
+  style
 }: StatCardProps) => {
   return (
     <Card 
@@ -33,12 +35,13 @@ export const StatCard = ({
         className
       )}
       onClick={onClick}
+      style={style}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center transition-transform duration-200 hover:scale-110">
           <Icon className="h-5 w-5 text-primary" />
         </div>
       </CardHeader>

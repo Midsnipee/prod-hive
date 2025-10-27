@@ -44,6 +44,7 @@ const Dashboard = () => {
             icon={Package}
             description={`${mockMaterials.length} types de matériels`}
             onClick={() => navigate("/materials")}
+            className="animate-fade-in"
           />
           
           <StatCard
@@ -52,6 +53,8 @@ const Dashboard = () => {
             icon={TrendingUp}
             description="Prix d'achat total"
             onClick={() => navigate("/materials")}
+            className="animate-fade-in"
+            style={{ animationDelay: '0.1s', animationFillMode: 'both' }}
           />
           
           <StatCard
@@ -60,6 +63,8 @@ const Dashboard = () => {
             icon={AlertTriangle}
             description="Matériels en stock faible"
             onClick={() => navigate("/materials")}
+            className="animate-fade-in"
+            style={{ animationDelay: '0.2s', animationFillMode: 'both' }}
           />
           
           <StatCard
@@ -68,6 +73,8 @@ const Dashboard = () => {
             icon={Clock}
             description="Commandes en cours"
             onClick={() => navigate("/orders")}
+            className="animate-fade-in"
+            style={{ animationDelay: '0.3s', animationFillMode: 'both' }}
           />
           
           <StatCard
@@ -76,6 +83,8 @@ const Dashboard = () => {
             icon={Shield}
             description="Expiration < 90 jours"
             onClick={() => navigate("/serials")}
+            className="animate-fade-in"
+            style={{ animationDelay: '0.4s', animationFillMode: 'both' }}
           />
           
           <StatCard
@@ -84,11 +93,13 @@ const Dashboard = () => {
             icon={Users}
             description="Matériels attribués"
             onClick={() => navigate("/assignments")}
+            className="animate-fade-in"
+            style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
           />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 animate-fade-in" style={{ animationDelay: '0.6s', animationFillMode: 'both' }}>
             <h3 className="text-lg font-semibold mb-4">Stock par catégorie</h3>
             <div className="space-y-3">
               {Object.entries(
@@ -113,7 +124,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-6 animate-fade-in" style={{ animationDelay: '0.7s', animationFillMode: 'both' }}>
             <h3 className="text-lg font-semibold mb-4">Commandes récentes</h3>
             <div className="space-y-3">
               {mockOrders.slice(0, 4).map((order) => (
