@@ -1,151 +1,277 @@
-import { AppLayout } from "@/components/layout/AppLayout";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { 
-  Package, 
-  TrendingUp, 
-  AlertTriangle, 
-  Clock, 
-  Shield, 
-  Users 
-} from "lucide-react";
-import { mockMaterials, mockOrders, mockSerials, mockAssignments } from "@/lib/mockData";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  AlertTriangle,
+  BarChart3,
+  BellRing,
+  Blocks,
+  CalendarClock,
+  Clock,
+  LayoutGrid,
+  Package,
+  Shield,
+  TrendingUp,
+  Users,
+  Wrench
+} from "lucide-react";
+import { mockAssignments, mockDashboardAlerts, mockMaterials, mockOrders, mockSerials } from "@/lib/mockData";
+import { DashboardWidget, DashboardWidgetConfig } from "@/components/dashboard/DashboardWidget";
+import { Badge } from "@/components/ui/badge";
+
+const availableWidgets: DashboardWidgetConfig[] = [
+  {
+    id: "stock-overview",
+    title: "Stock par catégorie",
+    description: "Visualisez la répartition du stock et les seuils critiques",
+    icon: BarChart3,
+    size: "medium",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.Chart
+        title="Répartition du stock"
+        subtitle="Catégories principales"
+        data={mockMaterials.map(item => ({
+          name: item.category,
+          value: item.stock,
+          threshold: item.lowStockThreshold,
+          site: item.site,
+          supplier: item.defaultSupplier,
+          category: item.category,
+          period: "this-year"
+        }))}
+        filters={filters}
+        onDetail={() => onNavigate("/materials")}
+      />
+    )
+  },
+  {
+    id: "pending-deliveries",
+    title: "Livraisons en attente",
+    description: "Commandes fournisseur en cours d'acheminement",
+    icon: Clock,
+    size: "small",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.List
+        title="Livraisons en attente"
+        metric={mockOrders.filter(order => order.status === "Commande fournisseur faite").length}
+        metricLabel="Commandes en transit"
+        items={mockOrders
+          .filter(order => order.status !== "Livré")
+          .map(order => ({
+            id: order.id,
+            primary: order.reference,
+            secondary: `${order.supplier} • ${new Date(order.expectedDelivery ?? order.createdAt).toLocaleDateString("fr-FR")}`,
+            status: order.status,
+            site: order.site,
+            supplier: order.supplier,
+            period: "this-quarter"
+          }))}
+        filters={filters}
+        onDetail={() => onNavigate("/orders?status=Commande%20fournisseur%20faite")}
+      />
+    )
+  },
+  {
+    id: "warranty",
+    title: "Garanties à surveiller",
+    description: "Matériels dont la garantie expire bientôt",
+    icon: Shield,
+    size: "small",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.List
+        title="Garanties < 90 jours"
+        metric={mockSerials.filter(serial => serial.warrantyStatus === "warning").length}
+        metricLabel="Unités à renouveler"
+        items={mockSerials
+          .filter(serial => serial.warrantyStatus !== "ok")
+          .map(serial => ({
+            id: serial.id,
+            primary: serial.serialNumber,
+            secondary: `${serial.materialName} • ${serial.warrantyEnd.toLocaleDateString("fr-FR")}`,
+            status: serial.status,
+            supplier: serial.supplier,
+            site: serial.site,
+            period: "this-quarter"
+          }))}
+        filters={filters}
+        onDetail={() => onNavigate("/serials?warranty=soon")}
+      />
+    )
+  },
+  {
+    id: "assignments",
+    title: "Attributions récentes",
+    description: "Suivi des mouvements de matériel",
+    icon: Users,
+    size: "medium",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.Timeline
+        title="Dernières attributions"
+        events={mockAssignments.map(assignment => ({
+          id: assignment.id,
+          title: `${assignment.assignedTo} • ${assignment.materialName}`,
+          description: assignment.department,
+          date: assignment.startDate,
+          site: assignment.site,
+          supplier: assignment.supplier,
+          period: "this-month"
+        }))}
+        filters={filters}
+        onDetail={() => onNavigate("/assignments")}
+      />
+    )
+  },
+  {
+    id: "stock-value",
+    title: "Valeur du stock",
+    description: "Synthèse financière du parc",
+    icon: TrendingUp,
+    size: "small",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.Kpi
+        title="Valeur estimée"
+        value={mockMaterials.reduce((total, item) => total + item.defaultUnitPrice * item.stock, 0)}
+        currency="€"
+        comparison={{
+          label: "vs mois dernier",
+          value: 6.4,
+          direction: "up"
+        }}
+        filters={filters}
+        onDetail={() => onNavigate("/materials")}
+      />
+    )
+  },
+  {
+    id: "alerts",
+    title: "Alertes",
+    description: "Ruptures de stock et garanties expirées",
+    icon: BellRing,
+    size: "medium",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.AlertList
+        title="Alertes prioritaires"
+        alerts={mockDashboardAlerts.map(alert => ({
+          ...alert,
+          period: alert.period,
+          supplier: alert.supplier,
+          site: alert.site
+        }))}
+        filters={filters}
+        onDetail={() => onNavigate("/materials?view=alerts")}
+      />
+    )
+  },
+  {
+    id: "lifecycle",
+    title: "Cycle de vie",
+    description: "Suivi des étapes clés du parc",
+    icon: LayoutGrid,
+    size: "large",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.MultiMetric
+        title="Cycle de vie du matériel"
+        metrics={[
+          { label: "En stock", value: mockSerials.filter(serial => serial.status === "En stock").length, icon: Package },
+          { label: "Attribués", value: mockSerials.filter(serial => serial.status === "Attribué").length, icon: Users },
+          { label: "En maintenance", value: mockSerials.filter(serial => serial.status === "En réparation").length, icon: Wrench },
+          { label: "Fin de vie", value: mockSerials.filter(serial => serial.status === "Retiré").length, icon: Blocks }
+        ]}
+        filters={filters}
+        onDetail={() => onNavigate("/serials")}
+      />
+    )
+  },
+  {
+    id: "calendar",
+    title: "Échéances",
+    description: "Retours programmés et garanties à échéance",
+    icon: CalendarClock,
+    size: "medium",
+    render: ({ filters, onNavigate }) => (
+      <DashboardWidget.Calendar
+        title="Échéances du mois"
+        events={[
+          ...mockAssignments
+            .filter(assignment => assignment.expectedReturn)
+            .map(assignment => ({
+              id: `assignment-${assignment.id}`,
+              date: assignment.expectedReturn!,
+              label: `${assignment.assignedTo} - ${assignment.materialName}`,
+              type: "return",
+              site: assignment.site,
+              supplier: assignment.supplier,
+              period: "this-month"
+            })),
+          ...mockSerials
+            .filter(serial => serial.warrantyStatus === "warning")
+            .map(serial => ({
+              id: `warranty-${serial.id}`,
+              date: serial.warrantyEnd,
+              label: `${serial.materialName} (${serial.serialNumber})`,
+              type: "warranty",
+              site: serial.site,
+              supplier: serial.supplier,
+              period: "this-quarter"
+            }))
+        ]}
+        filters={filters}
+        onDetail={() => onNavigate("/assignments?view=calendar")}
+      />
+    )
+  }
+];
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [filters, setFilters] = useState({ period: "this-quarter", category: "all", supplier: "all", site: "all" });
 
-  // Calculs pour les statistiques
-  const totalStock = mockMaterials.reduce((acc, item) => acc + item.stock, 0);
-  const lowStockItems = mockMaterials.filter(item => item.stock < item.threshold).length;
-  const pendingDeliveries = mockOrders.filter(o => o.status === "Commande fournisseur faite").length;
-  const stockValue = mockMaterials.reduce((acc, item) => acc + (item.price * item.stock), 0);
-  const warrantyExpiringSoon = mockSerials.filter(s => {
-    const endDate = new Date(s.warrantyEnd);
-    const now = new Date();
-    const daysUntilExpiry = Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry > 0 && daysUntilExpiry <= 90;
-  }).length;
-  const recentAssignments = mockAssignments.length;
+  const widgets = availableWidgets;
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LayoutGrid className="h-4 w-4" />
+            Vue globale
+          </div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Vue d'ensemble de votre gestion de stock
+            Surveillez les indicateurs clés de vos opérations en un coup d'œil.
           </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="Stock total"
-            value={totalStock}
-            icon={Package}
-            description={`${mockMaterials.length} types de matériels`}
-            onClick={() => navigate("/materials")}
-            className="animate-fade-in"
-          />
-          
-          <StatCard
-            title="Valeur du stock"
-            value={`${stockValue.toLocaleString('fr-FR')} €`}
-            icon={TrendingUp}
-            description="Prix d'achat total"
-            onClick={() => navigate("/materials")}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.1s', animationFillMode: 'both' }}
-          />
-          
-          <StatCard
-            title="Seuils d'alerte"
-            value={lowStockItems}
-            icon={AlertTriangle}
-            description="Matériels en stock faible"
-            onClick={() => navigate("/materials")}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.2s', animationFillMode: 'both' }}
-          />
-          
-          <StatCard
-            title="Livraisons en attente"
-            value={pendingDeliveries}
-            icon={Clock}
-            description="Commandes en cours"
-            onClick={() => navigate("/orders")}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.3s', animationFillMode: 'both' }}
-          />
-          
-          <StatCard
-            title="Garanties à surveiller"
-            value={warrantyExpiringSoon}
-            icon={Shield}
-            description="Expiration < 90 jours"
-            onClick={() => navigate("/serials")}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.4s', animationFillMode: 'both' }}
-          />
-          
-          <StatCard
-            title="Attributions actives"
-            value={recentAssignments}
-            icon={Users}
-            description="Matériels attribués"
-            onClick={() => navigate("/assignments")}
-            className="animate-fade-in"
-            style={{ animationDelay: '0.5s', animationFillMode: 'both' }}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="bg-card border border-border rounded-lg p-6 animate-fade-in" style={{ animationDelay: '0.6s', animationFillMode: 'both' }}>
-            <h3 className="text-lg font-semibold mb-4">Stock par catégorie</h3>
-            <div className="space-y-3">
-              {Object.entries(
-                mockMaterials.reduce((acc, item) => {
-                  acc[item.category] = (acc[item.category] || 0) + item.stock;
-                  return acc;
-                }, {} as Record<string, number>)
-              ).map(([category, count]) => (
-                <div key={category} className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{category}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-32 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary rounded-full"
-                        style={{ width: `${(count / totalStock) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-medium w-8 text-right">{count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Package className="h-3 w-3" /> {mockMaterials.length} matériels
+            </Badge>
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <Users className="h-3 w-3" /> {mockAssignments.length} attributions actives
+            </Badge>
+            <Badge variant="secondary" className="flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" /> {mockDashboardAlerts.length} alertes
+            </Badge>
           </div>
-
-          <div className="bg-card border border-border rounded-lg p-6 animate-fade-in" style={{ animationDelay: '0.7s', animationFillMode: 'both' }}>
-            <h3 className="text-lg font-semibold mb-4">Commandes récentes</h3>
-            <div className="space-y-3">
-              {mockOrders.slice(0, 4).map((order) => (
-                <div key={order.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{order.reference}</p>
-                    <p className="text-xs text-muted-foreground">{order.supplier}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">{order.amount.toLocaleString('fr-FR')} €</p>
-                    <span className="text-xs px-2 py-1 rounded-full bg-muted">
-                      {order.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <DashboardWidget.Filters
+            value={filters}
+            onChange={setFilters}
+            className="w-[320px]"
+          />
         </div>
       </div>
-    </AppLayout>
+
+      <div className="grid auto-rows-max gap-4 md:grid-cols-2 xl:grid-cols-12">
+        {widgets.map(widget => (
+          <DashboardWidget
+            key={widget.id}
+            config={widget}
+            filters={filters}
+            onNavigate={path => navigate(path)}
+          />
+        ))}
+      </div>
+
+    </div>
   );
 };
 

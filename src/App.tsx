@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
@@ -11,6 +11,7 @@ import Orders from "./pages/Orders";
 import Serials from "./pages/Serials";
 import Assignments from "./pages/Assignments";
 import Settings from "./pages/Settings";
+import Test from "./pages/Test";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -39,12 +40,23 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/materials" element={<ProtectedRoute><AppLayout><Materials /></AppLayout></ProtectedRoute>} />
-            <Route path="/orders" element={<ProtectedRoute><AppLayout><Orders /></AppLayout></ProtectedRoute>} />
-            <Route path="/serials" element={<ProtectedRoute><AppLayout><Serials /></AppLayout></ProtectedRoute>} />
-            <Route path="/assignments" element={<ProtectedRoute><AppLayout><Assignments /></AppLayout></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><AppLayout><Settings /></AppLayout></ProtectedRoute>} />
+            <Route
+              element={(
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Outlet />
+                  </AppLayout>
+                </ProtectedRoute>
+              )}
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="materials" element={<Materials />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="serials" element={<Serials />} />
+              <Route path="assignments" element={<Assignments />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="test" element={<Test />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
