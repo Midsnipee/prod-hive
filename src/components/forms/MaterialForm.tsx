@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { db } from '@/lib/db';
 import { toast } from 'sonner';
-import { Material } from '@/lib/mockData';
+import { Material, MaterialCategory } from '@/lib/mockData';
 
 const materialSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(100),
@@ -32,9 +32,18 @@ interface MaterialFormProps {
 export function MaterialForm({ material, onSuccess, onCancel }: MaterialFormProps) {
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialSchema),
-    defaultValues: material || {
+    defaultValues: material ? {
+      name: material.name,
+      category: material.category,
+      internalRef: material.internalRef,
+      supplier: material.defaultSupplier,
+      price: material.defaultUnitPrice,
+      stock: material.stock,
+      threshold: material.lowStockThreshold,
+      site: material.site
+    } : {
       name: '',
-      category: '',
+      category: 'PC Portable',
       internalRef: '',
       supplier: '',
       price: 0,
@@ -49,17 +58,29 @@ export function MaterialForm({ material, onSuccess, onCancel }: MaterialFormProp
       const materialData: Material = {
         id: material?.id || crypto.randomUUID(),
         name: values.name,
-        category: values.category,
+        category: values.category as MaterialCategory,
         internalRef: values.internalRef,
-        supplier: values.supplier,
-        price: values.price,
+        defaultSupplier: values.supplier,
+        defaultUnitPrice: values.price,
         stock: values.stock,
-        threshold: values.threshold,
-        site: values.site
+        lowStockThreshold: values.threshold,
+        site: values.site,
+        pendingDeliveries: material?.pendingDeliveries || 0,
+        nonSerializedStock: material?.nonSerializedStock || 0,
+        tags: material?.tags || []
       };
 
       if (material?.id) {
-        await db.materials.update(material.id, materialData);
+        await db.materials.update(material.id, {
+          name: materialData.name,
+          category: materialData.category,
+          internalRef: materialData.internalRef,
+          defaultSupplier: materialData.defaultSupplier,
+          defaultUnitPrice: materialData.defaultUnitPrice,
+          stock: materialData.stock,
+          lowStockThreshold: materialData.lowStockThreshold,
+          site: materialData.site
+        });
         toast.success('Matériel mis à jour');
       } else {
         await db.materials.add(materialData);

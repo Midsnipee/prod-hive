@@ -47,7 +47,14 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
 
   const form = useForm<AssignmentFormValues>({
     resolver: zodResolver(assignmentSchema),
-    defaultValues: assignment || {
+    defaultValues: assignment ? {
+      serialNumber: assignment.serialNumber,
+      materialName: assignment.materialName,
+      assignedTo: assignment.assignedTo,
+      department: assignment.department,
+      startDate: assignment.startDate instanceof Date ? assignment.startDate.toISOString().split('T')[0] : assignment.startDate,
+      expectedReturn: assignment.expectedReturn instanceof Date ? assignment.expectedReturn.toISOString().split('T')[0] : assignment.expectedReturn
+    } : {
       serialNumber: prefilledSerial || '',
       materialName: prefilledMaterialName || '',
       assignedTo: '',
@@ -61,12 +68,15 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
     try {
       const assignmentData: Assignment = {
         id: assignment?.id || crypto.randomUUID(),
+        serialId: '',
         serialNumber: values.serialNumber,
         materialName: values.materialName,
         assignedTo: values.assignedTo,
         department: values.department,
-        startDate: values.startDate,
-        expectedReturn: values.expectedReturn
+        startDate: new Date(values.startDate),
+        expectedReturn: values.expectedReturn ? new Date(values.expectedReturn) : undefined,
+        site: '',
+        supplier: ''
       };
 
       if (assignment?.id) {

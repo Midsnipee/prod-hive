@@ -200,7 +200,7 @@ const availableWidgets: DashboardWidgetConfig[] = [
               id: `assignment-${assignment.id}`,
               date: assignment.expectedReturn!,
               label: `${assignment.assignedTo} - ${assignment.materialName}`,
-              type: "return",
+              type: "return" as const,
               site: assignment.site,
               supplier: assignment.supplier,
               period: "this-month"
@@ -211,7 +211,7 @@ const availableWidgets: DashboardWidgetConfig[] = [
               id: `warranty-${serial.id}`,
               date: serial.warrantyEnd,
               label: `${serial.materialName} (${serial.serialNumber})`,
-              type: "warranty",
+              type: "warranty" as const,
               site: serial.site,
               supplier: serial.supplier,
               period: "this-quarter"

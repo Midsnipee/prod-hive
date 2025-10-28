@@ -455,10 +455,10 @@ export const mockOrders: Order[] = Array.from({ length: 6 }).map((_, index) => {
     deliveries,
     history,
     files: [
-      { id: `file-${index}-1`, name: "Devis signé.pdf", type: "devis", url: "devis-signe.pdf" },
-      { id: `file-${index}-2`, name: "Bon de commande.pdf", type: "commande", url: "bon-commande.pdf" },
+      { id: `file-${index}-1`, name: "Devis signé.pdf", type: "devis" as const, url: "devis-signe.pdf" },
+      { id: `file-${index}-2`, name: "Bon de commande.pdf", type: "commande" as const, url: "bon-commande.pdf" },
       ...(status === "Livré"
-        ? [{ id: `file-${index}-3`, name: "Facture.pdf", type: "facture", url: "facture.pdf" }]
+        ? [{ id: `file-${index}-3`, name: "Facture.pdf", type: "facture" as const, url: "facture.pdf" }]
         : [])
     ]
   } satisfies Order;

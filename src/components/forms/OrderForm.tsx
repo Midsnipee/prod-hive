@@ -60,11 +60,24 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         supplier: values.supplier,
         amount: values.amount,
         status: values.status,
-        createdAt: order?.createdAt || new Date().toISOString().split('T')[0]
+        createdAt: order?.createdAt instanceof Date ? order.createdAt : new Date(order?.createdAt || Date.now()),
+        currency: 'EUR',
+        site: order?.site || '',
+        requestedBy: order?.requestedBy || '',
+        tags: order?.tags || [],
+        lines: order?.lines || [],
+        deliveries: order?.deliveries || [],
+        history: order?.history || [],
+        files: order?.files || []
       };
 
       if (order?.id) {
-        await db.orders.update(order.id, orderData);
+        await db.orders.update(order.id, {
+          reference: orderData.reference,
+          supplier: orderData.supplier,
+          amount: orderData.amount,
+          status: orderData.status
+        });
         toast.success('Commande mise à jour');
       } else {
         await db.orders.add(orderData);

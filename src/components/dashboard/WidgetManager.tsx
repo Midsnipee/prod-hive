@@ -36,15 +36,15 @@ export const WidgetManager = ({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="border-border max-h-[90vh] overflow-hidden">
-        <DrawerHeader className="px-6">
+      <DrawerContent className="border-border h-[90vh] flex flex-col">
+        <DrawerHeader className="px-6 flex-shrink-0">
           <DrawerTitle>Organisation du dashboard</DrawerTitle>
           <DrawerDescription>
             Activez ou désactivez les cartes et réordonnez l&apos;affichage de votre tableau de bord.
           </DrawerDescription>
         </DrawerHeader>
-        <Separator className="mx-6" />
-        <ScrollArea className="flex-1 px-6 pb-6" style={{ maxHeight: "calc(90vh - 220px)" }}>
+        <Separator className="mx-6 flex-shrink-0" />
+        <ScrollArea className="flex-1 px-6">
           <div className="space-y-8 py-6">
             <section className="space-y-4">
               <header className="space-y-1">
@@ -139,7 +139,7 @@ export const WidgetManager = ({
             </section>
           </div>
         </ScrollArea>
-        <DrawerFooter className="border-t border-border bg-muted/40">
+        <DrawerFooter className="border-t border-border bg-muted/40 flex-shrink-0">
           <Button onClick={() => onOpenChange(false)}>Fermer</Button>
         </DrawerFooter>
       </DrawerContent>
