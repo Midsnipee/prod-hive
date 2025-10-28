@@ -11,6 +11,7 @@ import Orders from "./pages/Orders";
 import Serials from "./pages/Serials";
 import Assignments from "./pages/Assignments";
 import Settings from "./pages/Settings";
+import Test from "./pages/Test";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="serials" element={<Serials />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="test" element={<Test />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
