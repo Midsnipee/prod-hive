@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import Materials from "./pages/Materials";
+import MaterialDetail from "./pages/MaterialDetail";
 import Orders from "./pages/Orders";
 import Serials from "./pages/Serials";
 import Assignments from "./pages/Assignments";
@@ -50,6 +51,7 @@ const App = () => (
             >
               <Route index element={<Dashboard />} />
               <Route path="materials" element={<Materials />} />
+              <Route path="materials/:id" element={<MaterialDetail />} />
               <Route path="orders" element={<Orders />} />
               <Route path="serials" element={<Serials />} />
               <Route path="assignments" element={<Assignments />} />

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,44 +11,50 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockMaterials, Material, mockSerials, mockAssignments } from "@/lib/mockData";
+import { Material } from "@/lib/mockData";
 import {
   Download,
-  Filter,
   Layers,
-  Link2,
   ListFilter,
   PackageSearch,
   Plus,
-  QrCode,
   Search,
   Upload,
-  Wand2
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { MaterialForm } from "@/components/forms/MaterialForm";
+import { db } from "@/lib/db";
 
 const Materials = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [category, setCategory] = useState("all");
   const [site, setSite] = useState("all");
   const [supplier, setSupplier] = useState("all");
   const [onlyAlerts, setOnlyAlerts] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false);
 
-  const categories = useMemo(() => Array.from(new Set(mockMaterials.map(material => material.category))), []);
-  const sites = useMemo(() => Array.from(new Set(mockMaterials.map(material => material.site))), []);
-  const suppliers = useMemo(() => Array.from(new Set(mockMaterials.map(material => material.defaultSupplier))), []);
+  useEffect(() => {
+    loadMaterials();
+  }, []);
+
+  const loadMaterials = async () => {
+    const materialsFromDb = await db.materials.toArray();
+    setMaterials(materialsFromDb);
+  };
+
+  const categories = useMemo(() => Array.from(new Set(materials.map(material => material.category))), [materials]);
+  const sites = useMemo(() => Array.from(new Set(materials.map(material => material.site))), [materials]);
+  const suppliers = useMemo(() => Array.from(new Set(materials.map(material => material.defaultSupplier))), [materials]);
 
   const filteredMaterials = useMemo(() =>
-    mockMaterials.filter(material => {
+    materials.filter(material => {
       const matchesSearch = `${material.name} ${material.internalRef} ${material.tags.join(" ")}`.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = category === "all" || material.category === category;
       const matchesSite = site === "all" || material.site === site;
@@ -55,7 +62,7 @@ const Materials = () => {
       const matchesAlerts = !onlyAlerts || material.stock <= material.lowStockThreshold;
       return matchesSearch && matchesCategory && matchesSite && matchesSupplier && matchesAlerts;
     }),
-  [searchTerm, category, site, supplier, onlyAlerts]);
+  [materials, searchTerm, category, site, supplier, onlyAlerts]);
 
   return (
     <div className="space-y-6">
@@ -93,7 +100,7 @@ const Materials = () => {
             </DialogContent>
           </Dialog>
           <Button variant="outline" className="gap-2" onClick={() => toast.success("Export CSV généré")}> <Download className="h-4 w-4" />Exporter</Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setShowNewMaterialDialog(true)}>
             <Plus className="h-4 w-4" />
             Nouveau matériel
           </Button>
@@ -171,14 +178,13 @@ const Materials = () => {
               <TableHead>Stock</TableHead>
               <TableHead>En alerte</TableHead>
               <TableHead>Site</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredMaterials.map(material => {
               const isLow = material.stock <= material.lowStockThreshold;
               return (
-                <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedMaterial(material)}>
+                <TableRow key={material.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/materials/${material.id}`)}>
                   <TableCell>
                     <div className="font-semibold">{material.name}</div>
                     <p className="text-xs text-muted-foreground">{material.tags.join(", ")}</p>
@@ -204,16 +210,6 @@ const Materials = () => {
                     )}
                   </TableCell>
                   <TableCell>{material.site}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); toast.success("Code QR généré"); }}>
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); toast.success("Lien de fiche copié"); }}>
-                        <Link2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
                 </TableRow>
               );
             })}
@@ -221,151 +217,24 @@ const Materials = () => {
         </Table>
       </div>
 
-      <MaterialDetailSheet material={selectedMaterial} onOpenChange={(open) => !open && setSelectedMaterial(null)} />
+      <Dialog open={showNewMaterialDialog} onOpenChange={setShowNewMaterialDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nouveau matériel</DialogTitle>
+            <DialogDescription>
+              Créez un nouveau matériel dans votre inventaire.
+            </DialogDescription>
+          </DialogHeader>
+          <MaterialForm 
+            onSuccess={() => {
+              setShowNewMaterialDialog(false);
+              loadMaterials();
+            }} 
+            onCancel={() => setShowNewMaterialDialog(false)} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
-  );
-};
-
-const MaterialDetailSheet = ({ material, onOpenChange }: { material: Material | null; onOpenChange: (open: boolean) => void }) => {
-  if (!material) {
-    return <Sheet open={false} onOpenChange={onOpenChange} />;
-  }
-
-  const serials = mockSerials.filter(serial => serial.materialId === material.id);
-  const assignments = mockAssignments.filter(assignment => assignment.materialName === material.name);
-  const warrantyWarnings = serials.filter(serial => serial.warrantyStatus !== "ok");
-
-  const pattern = material.internalRef.split("").map(char => char.charCodeAt(0).toString(2).padStart(8, "0")).join("");
-  const qrMatrix = Array.from({ length: 12 }).map((_, row) =>
-    Array.from({ length: 12 }).map((__, col) => pattern[(row * 12 + col) % pattern.length] === "1")
-  );
-
-  return (
-    <Sheet open={Boolean(material)} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>{material.name}</SheetTitle>
-        </SheetHeader>
-        <ScrollArea className="h-full pr-4">
-          <div className="space-y-6 py-6">
-            <section className="rounded-lg border border-border bg-muted/30 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Référence interne</p>
-                  <p className="font-mono text-sm font-semibold">{material.internalRef}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Fournisseur par défaut</p>
-                  <p className="font-semibold">{material.defaultSupplier}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Stock disponible</p>
-                  <p className="font-semibold">{material.stock} / seuil {material.lowStockThreshold}</p>
-                </div>
-              </div>
-              <Separator className="my-4" />
-              <div className="flex flex-wrap gap-4">
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Code-barres</p>
-                  <div className="mt-2 flex overflow-hidden rounded border border-border bg-background">
-                    {pattern.split("").map((bit, index) => (
-                      <span key={index} className={cn("h-16 w-[2px]", bit === "1" ? "bg-foreground" : "bg-background")} />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs uppercase text-muted-foreground">Code QR</p>
-                  <div className="mt-2 grid grid-cols-12 gap-[1px] rounded border border-border bg-background p-2">
-                    {qrMatrix.map((row, rowIndex) => row.map((isFilled, colIndex) => (
-                      <span key={`${rowIndex}-${colIndex}`} className={cn("h-3 w-3", isFilled ? "bg-foreground" : "bg-background")} />
-                    )))}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => toast.success("Codes téléchargés")}> <QrCode className="h-4 w-4" /> Télécharger</Button>
-                <Button size="sm" variant="outline" className="gap-2" onClick={() => toast.success("Nouveau lot créé")}> <Wand2 className="h-4 w-4" /> Créer numéros de série</Button>
-              </div>
-            </section>
-
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase text-muted-foreground">Numéros de série</h3>
-              <div className="rounded-lg border border-border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Numéro</TableHead>
-                      <TableHead>Livraison</TableHead>
-                      <TableHead>Garantie</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead>Attribué à</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {serials.map(serial => (
-                      <TableRow key={serial.id}>
-                        <TableCell className="font-mono text-xs">{serial.serialNumber}</TableCell>
-                        <TableCell>{serial.deliveryDate.toLocaleDateString("fr-FR")}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <span>{serial.warrantyEnd.toLocaleDateString("fr-FR")}</span>
-                            {serial.warrantyStatus !== "ok" && (
-                              <Badge variant="outline" className={serial.warrantyStatus === "warning" ? "border-warning text-warning" : "border-destructive text-destructive"}>
-                                {serial.warrantyStatus === "warning" ? "< 90j" : "Expirée"}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>{serial.status}</TableCell>
-                        <TableCell>{serial.assignedTo ?? "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase text-muted-foreground">Attributions</h3>
-              {assignments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune attribution enregistrée pour ce matériel.</p>
-              ) : (
-                <div className="space-y-3">
-                  {assignments.map(assignment => (
-                    <div key={assignment.id} className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold">{assignment.assignedTo}</span>
-                        <span className="text-xs text-muted-foreground">{assignment.department}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Attribué le {assignment.startDate.toLocaleDateString("fr-FR")}</p>
-                      {assignment.expectedReturn && (
-                        <p className="text-xs text-muted-foreground">Retour prévu le {assignment.expectedReturn.toLocaleDateString("fr-FR")}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase text-muted-foreground">Alertes garanties</h3>
-              {warrantyWarnings.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Toutes les garanties sont à jour.</p>
-              ) : (
-                <div className="space-y-2">
-                  {warrantyWarnings.map(serial => (
-                    <div key={serial.id} className="rounded border border-warning bg-warning/10 p-3 text-sm">
-                      <p className="font-semibold">{serial.serialNumber}</p>
-                      <p className="text-xs text-muted-foreground">Expiration le {serial.warrantyEnd.toLocaleDateString("fr-FR")}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
   );
 };
 
