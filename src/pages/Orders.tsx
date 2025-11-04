@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -10,8 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockOrders, Order, OrderStatus, mockSuppliers } from "@/lib/mockData";
-import { CalendarIcon, FileText, Filter, MoreHorizontal, Plus, Search, Tags, Download } from "lucide-react";
+import { mockOrders, Order, OrderStatus, mockSuppliers, OrderFile } from "@/lib/mockData";
+import { CalendarIcon, FileText, Filter, MoreHorizontal, Plus, Search, Tags, Download, ArrowUpDown, Upload } from "lucide-react";
+import { OrderForm } from "@/components/forms/OrderForm";
+import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -43,6 +46,10 @@ const Orders = () => {
   const [dateRange, setDateRange] = useState<DateRange>({});
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showNewOrderDialog, setShowNewOrderDialog] = useState(false);
+  const [referenceSort, setReferenceSort] = useState<"asc" | "desc" | null>(null);
+  const [amountSort, setAmountSort] = useState<"asc" | "desc" | null>(null);
+  const [requestedByFilter, setRequestedByFilter] = useState("");
 
   const suppliers = useMemo(() => Array.from(new Set(mockSuppliers.map(supplier => supplier.name))), []);
 
@@ -52,9 +59,16 @@ const Orders = () => {
       const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(order.status);
       const matchesSupplier = selectedSupplier === "all" || order.supplier === selectedSupplier;
       const matchesDate = (!dateRange.from || order.createdAt >= dateRange.from) && (!dateRange.to || order.createdAt <= dateRange.to);
-      return matchesSearch && matchesStatus && matchesSupplier && matchesDate;
+      const matchesRequestedBy = !requestedByFilter || order.requestedBy.toLowerCase().includes(requestedByFilter.toLowerCase());
+      return matchesSearch && matchesStatus && matchesSupplier && matchesDate && matchesRequestedBy;
+    }).sort((a, b) => {
+      if (referenceSort === "asc") return a.reference.localeCompare(b.reference);
+      if (referenceSort === "desc") return b.reference.localeCompare(a.reference);
+      if (amountSort === "asc") return a.amount - b.amount;
+      if (amountSort === "desc") return b.amount - a.amount;
+      return 0;
     });
-  }, [searchTerm, selectedStatuses, selectedSupplier, dateRange]);
+  }, [searchTerm, selectedStatuses, selectedSupplier, dateRange, requestedByFilter, referenceSort, amountSort]);
 
   const toggleStatus = (status: OrderStatus) => {
     setSelectedStatuses(prev => prev.includes(status) ? prev.filter(item => item !== status) : [...prev, status]);
@@ -64,6 +78,9 @@ const Orders = () => {
     setSelectedStatuses([]);
     setSelectedSupplier("all");
     setDateRange({});
+    setRequestedByFilter("");
+    setReferenceSort(null);
+    setAmountSort(null);
   };
 
   return (
@@ -84,7 +101,7 @@ const Orders = () => {
             <Download className="h-4 w-4" />
             Exporter la vue
           </Button>
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={() => setShowNewOrderDialog(true)}>
             <Plus className="h-4 w-4" />
             Nouveau devis
           </Button>
@@ -106,11 +123,17 @@ const Orders = () => {
             <Filter className="h-4 w-4" />
             Filtres
           </Button>
-          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to) && (
+          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to || requestedByFilter || referenceSort || amountSort) && (
             <Button variant="ghost" onClick={clearFilters}>
               Réinitialiser
             </Button>
           )}
+          <Input
+            placeholder="Filtrer par demandeur..."
+            value={requestedByFilter}
+            onChange={(e) => setRequestedByFilter(e.target.value)}
+            className="max-w-xs"
+          />
         </div>
       </div>
 
@@ -137,18 +160,34 @@ const Orders = () => {
       </div>
 
       <div className="rounded-lg border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Référence</TableHead>
-              <TableHead>Fournisseur</TableHead>
-              <TableHead>Montant</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Livraison</TableHead>
-              <TableHead>Demandé par</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => {
+                    setAmountSort(null);
+                    setReferenceSort(referenceSort === "asc" ? "desc" : "asc");
+                  }}>
+                    Référence
+                    <ArrowUpDown className="h-3 w-3" />
+                  </Button>
+                </TableHead>
+                <TableHead>Fournisseur</TableHead>
+                <TableHead>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => {
+                    setReferenceSort(null);
+                    setAmountSort(amountSort === "asc" ? "desc" : "asc");
+                  }}>
+                    Montant
+                    <ArrowUpDown className="h-3 w-3" />
+                  </Button>
+                </TableHead>
+                <TableHead>Statut</TableHead>
+                <TableHead>Livraison</TableHead>
+                <TableHead>Demandé par</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
           <TableBody>
             {filteredOrders.map(order => (
               <TableRow key={order.id} className="cursor-pointer hover:bg-muted/60" onClick={() => setSelectedOrder(order)}>
@@ -210,6 +249,24 @@ const Orders = () => {
       />
 
       <OrderDetailSheet order={selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} />
+      
+      <Dialog open={showNewOrderDialog} onOpenChange={setShowNewOrderDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nouveau devis</DialogTitle>
+            <DialogDescription>
+              Créez un nouveau devis ou une nouvelle commande.
+            </DialogDescription>
+          </DialogHeader>
+          <OrderForm 
+            onSuccess={() => {
+              setShowNewOrderDialog(false);
+              toast.success("Devis créé");
+            }} 
+            onCancel={() => setShowNewOrderDialog(false)} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -314,14 +371,34 @@ const FiltersSheet = ({
 
 const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpenChange: (open: boolean) => void }) => {
   const [status, setStatus] = useState<OrderStatus | undefined>(order?.status);
+  const [description, setDescription] = useState<string>(order?.description || "");
+  const [uploadedFiles, setUploadedFiles] = useState<OrderFile[]>(order?.files || []);
 
   useEffect(() => {
     setStatus(order?.status);
+    setDescription(order?.description || "");
+    setUploadedFiles(order?.files || []);
   }, [order]);
 
   const updateStatus = (value: OrderStatus) => {
     setStatus(value);
     toast.success(`Statut mis à jour : ${value}`);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const newFile: OrderFile = {
+        id: `file-${Date.now()}-${Math.random()}`,
+        name: file.name,
+        type: "devis" as const,
+        url: URL.createObjectURL(file)
+      };
+      setUploadedFiles(prev => [...prev, newFile]);
+    });
+    toast.success("Fichier(s) ajouté(s)");
   };
 
   return (
@@ -343,14 +420,19 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
                 <Separator orientation="vertical" className="h-4" />
                 <span>Créé le {format(order.createdAt, "dd MMM yyyy", { locale: fr })}</span>
               </SheetDescription>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => updateStatus("Circuit interne")}>Passer en circuit interne</Button>
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => updateStatus("Commande fournisseur faite")}>Commande fournisseur faite</Button>
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => updateStatus("Livré")}>Marquer comme livré</Button>
-              </div>
             </SheetHeader>
 
             <div className="space-y-6 py-6">
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Description</h3>
+                <Textarea
+                  placeholder="Ajoutez une description..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="min-h-[100px]"
+                />
+              </section>
+
               <section className="rounded-lg border border-border bg-muted/40 p-4">
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">Progression</h3>
                 <div className="mt-3 grid gap-3 md:grid-cols-4">
@@ -358,18 +440,19 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
                     const currentStatus = status ?? order.status;
                     const isCompleted = statusSteps.indexOf(currentStatus) >= index;
                     return (
-                      <div
+                      <button
                         key={step}
+                        onClick={() => updateStatus(step)}
                         className={cn(
-                          "rounded-lg border p-3 text-sm",
-                          isCompleted ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground"
+                          "rounded-lg border p-3 text-sm text-left cursor-pointer transition-all hover:scale-105",
+                          isCompleted ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/50"
                         )}
                       >
                         <p className="font-medium">{step}</p>
                         <p className="mt-1 text-xs">
-                          {order.history[index]?.details || "Statut enregistré"}
+                          {order.history[index]?.details || "Cliquez pour définir ce statut"}
                         </p>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -434,9 +517,23 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase text-muted-foreground">Pièces jointes</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase text-muted-foreground">Pièces jointes</h3>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => document.getElementById('file-upload')?.click()}>
+                    <Upload className="h-4 w-4" />
+                    Ajouter un document
+                  </Button>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                </div>
                 <div className="grid gap-2 md:grid-cols-2">
-                  {order.files.map(file => (
+                  {uploadedFiles.map(file => (
                     <Button key={file.id} variant="outline" className="justify-start gap-2" size="sm">
                       <FileText className="h-4 w-4" />
                       {file.name}

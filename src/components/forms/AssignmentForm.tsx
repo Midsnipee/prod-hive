@@ -18,7 +18,8 @@ const assignmentSchema = z.object({
   assignedTo: z.string().min(1, 'L\'utilisateur est requis'),
   department: z.string().min(1, 'Le département est requis'),
   startDate: z.string(),
-  expectedReturn: z.string().optional()
+  expectedReturn: z.string().optional(),
+  renewalDate: z.string().optional()
 });
 
 type AssignmentFormValues = z.infer<typeof assignmentSchema>;
@@ -53,14 +54,16 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
       assignedTo: assignment.assignedTo,
       department: assignment.department,
       startDate: assignment.startDate instanceof Date ? assignment.startDate.toISOString().split('T')[0] : assignment.startDate,
-      expectedReturn: assignment.expectedReturn instanceof Date ? assignment.expectedReturn.toISOString().split('T')[0] : assignment.expectedReturn
+      expectedReturn: assignment.expectedReturn instanceof Date ? assignment.expectedReturn.toISOString().split('T')[0] : assignment.expectedReturn,
+      renewalDate: assignment.renewalDate instanceof Date ? assignment.renewalDate.toISOString().split('T')[0] : assignment.renewalDate
     } : {
       serialNumber: prefilledSerial || '',
       materialName: prefilledMaterialName || '',
       assignedTo: '',
       department: '',
       startDate: new Date().toISOString().split('T')[0],
-      expectedReturn: ''
+      expectedReturn: '',
+      renewalDate: ''
     }
   });
 
@@ -75,6 +78,7 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
         department: values.department,
         startDate: new Date(values.startDate),
         expectedReturn: values.expectedReturn ? new Date(values.expectedReturn) : undefined,
+        renewalDate: values.renewalDate ? new Date(values.renewalDate) : undefined,
         site: '',
         supplier: ''
       };
@@ -202,6 +206,20 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="renewalDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Date de renouvellement prévue</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>

@@ -58,6 +58,7 @@ export interface Assignment {
   supplier: string;
   startDate: Date;
   expectedReturn?: Date;
+  renewalDate?: Date;
   endDate?: Date;
   document?: string;
   notes?: string;
@@ -113,6 +114,7 @@ export interface Order {
   expectedDelivery?: Date;
   site: string;
   requestedBy: string;
+  description?: string;
   tags: string[];
   lines: OrderLine[];
   deliveries: Delivery[];

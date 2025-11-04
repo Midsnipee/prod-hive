@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -11,8 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Material, Serial } from "@/lib/mockData";
-import { ArrowLeft, Edit, Plus } from "lucide-react";
+import { Material, Serial, SerialStatus } from "@/lib/mockData";
+import { ArrowLeft, ArrowUpDown, Edit, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +31,9 @@ const MaterialDetail = () => {
   const [selectedSerial, setSelectedSerial] = useState<string>("");
   const [serialFilter, setSerialFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [assignedToFilter, setAssignedToFilter] = useState("");
+  const [deliveryDateSort, setDeliveryDateSort] = useState<"asc" | "desc" | null>(null);
+  const [warrantyEndSort, setWarrantyEndSort] = useState<"asc" | "desc" | null>(null);
 
   useEffect(() => {
     loadData();
@@ -58,7 +62,14 @@ const MaterialDetail = () => {
   const filteredSerials = serials.filter(serial => {
     const matchesSerial = serial.serialNumber.toLowerCase().includes(serialFilter.toLowerCase());
     const matchesStatus = statusFilter === "all" || serial.status === statusFilter;
-    return matchesSerial && matchesStatus;
+    const matchesAssignedTo = !assignedToFilter || (serial.assignedTo && serial.assignedTo.toLowerCase().includes(assignedToFilter.toLowerCase()));
+    return matchesSerial && matchesStatus && matchesAssignedTo;
+  }).sort((a, b) => {
+    if (deliveryDateSort === "asc") return a.deliveryDate.getTime() - b.deliveryDate.getTime();
+    if (deliveryDateSort === "desc") return b.deliveryDate.getTime() - a.deliveryDate.getTime();
+    if (warrantyEndSort === "asc") return a.warrantyEnd.getTime() - b.warrantyEnd.getTime();
+    if (warrantyEndSort === "desc") return b.warrantyEnd.getTime() - a.warrantyEnd.getTime();
+    return 0;
   });
 
   return (
@@ -111,7 +122,7 @@ const MaterialDetail = () => {
           </Button>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <Input
             placeholder="Filtrer par numéro de série..."
             value={serialFilter}
@@ -129,6 +140,12 @@ const MaterialDetail = () => {
             <option value="En réparation">En réparation</option>
             <option value="Retiré">Retiré</option>
           </select>
+          <Input
+            placeholder="Filtrer par attributaire..."
+            value={assignedToFilter}
+            onChange={(e) => setAssignedToFilter(e.target.value)}
+            className="max-w-xs"
+          />
         </div>
 
         <div className="rounded-lg border border-border">
@@ -136,8 +153,24 @@ const MaterialDetail = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Numéro de série</TableHead>
-                <TableHead>Date de livraison</TableHead>
-                <TableHead>Fin de garantie</TableHead>
+                <TableHead>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => {
+                    setWarrantyEndSort(null);
+                    setDeliveryDateSort(deliveryDateSort === "asc" ? "desc" : "asc");
+                  }}>
+                    Date de livraison
+                    <ArrowUpDown className="h-3 w-3" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1" onClick={() => {
+                    setDeliveryDateSort(null);
+                    setWarrantyEndSort(warrantyEndSort === "asc" ? "desc" : "asc");
+                  }}>
+                    Fin de garantie
+                    <ArrowUpDown className="h-3 w-3" />
+                  </Button>
+                </TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Attribué à</TableHead>
                 <TableHead>Actions</TableHead>
@@ -161,9 +194,24 @@ const MaterialDetail = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={serial.status === "En stock" ? "default" : "secondary"}>
-                      {serial.status}
-                    </Badge>
+                    <Select 
+                      value={serial.status} 
+                      onValueChange={async (value: SerialStatus) => {
+                        await db.serials.update(serial.id, { status: value });
+                        loadData();
+                        toast.success("Statut mis à jour");
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="En stock">En stock</SelectItem>
+                        <SelectItem value="Attribué">Attribué</SelectItem>
+                        <SelectItem value="En réparation">En réparation</SelectItem>
+                        <SelectItem value="Retiré">Retiré</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>{serial.assignedTo ?? "-"}</TableCell>
                   <TableCell>
