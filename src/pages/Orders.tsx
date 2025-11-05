@@ -11,7 +11,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockOrders, Order, OrderStatus, mockSuppliers, OrderFile } from "@/lib/mockData";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Order, OrderStatus, mockSuppliers, OrderFile } from "@/lib/mockData";
 import { CalendarIcon, FileText, Filter, MoreHorizontal, Plus, Search, Tags, Download, ArrowUpDown, Upload } from "lucide-react";
 import { OrderForm } from "@/components/forms/OrderForm";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/db";
 
 const statusColors: Record<OrderStatus, string> = {
   "Demandé": "border-border bg-muted text-muted-foreground",
@@ -40,6 +42,7 @@ type DateRange = {
 };
 
 const Orders = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<OrderStatus[]>([]);
   const [selectedSupplier, setSelectedSupplier] = useState<string>("all");
@@ -50,17 +53,49 @@ const Orders = () => {
   const [referenceSort, setReferenceSort] = useState<"asc" | "desc" | null>(null);
   const [amountSort, setAmountSort] = useState<"asc" | "desc" | null>(null);
   const [requestedByFilter, setRequestedByFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("");
+  const [siteFilter, setSiteFilter] = useState("");
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    const data = await db.orders.toArray();
+    setOrders(data);
+  };
+
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+    try {
+      await db.orders.update(orderId, { status: newStatus });
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId ? { ...order, status: newStatus } : order
+        )
+      );
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus });
+      }
+      toast.success('Statut mis à jour');
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour du statut');
+    }
+  };
 
   const suppliers = useMemo(() => Array.from(new Set(mockSuppliers.map(supplier => supplier.name))), []);
+  const uniqueRequestedBy = useMemo(() => Array.from(new Set(orders.map(o => o.requestedBy).filter(Boolean))), [orders]);
+  const uniqueSites = useMemo(() => Array.from(new Set(orders.map(o => o.site).filter(Boolean))), [orders]);
 
   const filteredOrders = useMemo(() => {
-    return mockOrders.filter(order => {
+    return orders.filter(order => {
       const matchesSearch = `${order.reference} ${order.supplier}`.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(order.status);
       const matchesSupplier = selectedSupplier === "all" || order.supplier === selectedSupplier;
       const matchesDate = (!dateRange.from || order.createdAt >= dateRange.from) && (!dateRange.to || order.createdAt <= dateRange.to);
-      const matchesRequestedBy = !requestedByFilter || order.requestedBy.toLowerCase().includes(requestedByFilter.toLowerCase());
-      return matchesSearch && matchesStatus && matchesSupplier && matchesDate && matchesRequestedBy;
+      const matchesRequestedBy = !requestedByFilter || order.requestedBy?.toLowerCase().includes(requestedByFilter.toLowerCase());
+      const matchesSupplierFilter = !supplierFilter || order.supplier?.toLowerCase().includes(supplierFilter.toLowerCase());
+      const matchesSite = !siteFilter || order.site?.toLowerCase().includes(siteFilter.toLowerCase());
+      return matchesSearch && matchesStatus && matchesSupplier && matchesDate && matchesRequestedBy && matchesSupplierFilter && matchesSite;
     }).sort((a, b) => {
       if (referenceSort === "asc") return a.reference.localeCompare(b.reference);
       if (referenceSort === "desc") return b.reference.localeCompare(a.reference);
@@ -68,7 +103,7 @@ const Orders = () => {
       if (amountSort === "desc") return b.amount - a.amount;
       return 0;
     });
-  }, [searchTerm, selectedStatuses, selectedSupplier, dateRange, requestedByFilter, referenceSort, amountSort]);
+  }, [orders, searchTerm, selectedStatuses, selectedSupplier, dateRange, requestedByFilter, supplierFilter, siteFilter, referenceSort, amountSort]);
 
   const toggleStatus = (status: OrderStatus) => {
     setSelectedStatuses(prev => prev.includes(status) ? prev.filter(item => item !== status) : [...prev, status]);
@@ -79,6 +114,8 @@ const Orders = () => {
     setSelectedSupplier("all");
     setDateRange({});
     setRequestedByFilter("");
+    setSupplierFilter("");
+    setSiteFilter("");
     setReferenceSort(null);
     setAmountSort(null);
   };
@@ -108,7 +145,7 @@ const Orders = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-4">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -118,22 +155,48 @@ const Orders = () => {
             onChange={(event) => setSearchTerm(event.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" className="gap-2" onClick={() => setFiltersOpen(true)}>
             <Filter className="h-4 w-4" />
             Filtres
           </Button>
-          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to || requestedByFilter || referenceSort || amountSort) && (
+          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to || requestedByFilter || supplierFilter || siteFilter || referenceSort || amountSort) && (
             <Button variant="ghost" onClick={clearFilters}>
               Réinitialiser
             </Button>
           )}
+          
           <Input
             placeholder="Filtrer par demandeur..."
             value={requestedByFilter}
             onChange={(e) => setRequestedByFilter(e.target.value)}
-            className="max-w-xs"
+            className="max-w-[200px]"
           />
+          
+          <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrer par fournisseur" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tous les fournisseurs</SelectItem>
+              {suppliers.map(supplier => (
+                <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          <Select value={siteFilter} onValueChange={setSiteFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrer par site" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tous les sites</SelectItem>
+              {uniqueSites.map(site => (
+                <SelectItem key={site} value={site}>{site}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -194,7 +257,7 @@ const Orders = () => {
                 <TableCell className="font-mono text-sm font-medium">
                   {order.reference}
                   <div className="mt-1 flex gap-1">
-                    {order.tags.map(tag => (
+                    {order.tags?.map(tag => (
                       <Badge key={tag} variant="secondary" className="text-[11px] font-normal">
                         {tag}
                       </Badge>
@@ -248,7 +311,11 @@ const Orders = () => {
         onDateRangeChange={setDateRange}
       />
 
-      <OrderDetailSheet order={selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)} />
+      <OrderDetailSheet 
+        order={selectedOrder} 
+        onOpenChange={(open) => !open && setSelectedOrder(null)}
+        onStatusChange={handleStatusChange}
+      />
       
       <Dialog open={showNewOrderDialog} onOpenChange={setShowNewOrderDialog}>
         <DialogContent className="max-w-2xl">
@@ -261,6 +328,7 @@ const Orders = () => {
           <OrderForm 
             onSuccess={() => {
               setShowNewOrderDialog(false);
+              loadOrders();
               toast.success("Devis créé");
             }} 
             onCancel={() => setShowNewOrderDialog(false)} 
@@ -369,7 +437,13 @@ const FiltersSheet = ({
   );
 };
 
-const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpenChange: (open: boolean) => void }) => {
+interface OrderDetailSheetProps {
+  order: Order | null;
+  onOpenChange: (open: boolean) => void;
+  onStatusChange: (orderId: string, newStatus: OrderStatus) => void;
+}
+
+const OrderDetailSheet = ({ order, onOpenChange, onStatusChange }: OrderDetailSheetProps) => {
   const [status, setStatus] = useState<OrderStatus | undefined>(order?.status);
   const [description, setDescription] = useState<string>(order?.description || "");
   const [uploadedFiles, setUploadedFiles] = useState<OrderFile[]>(order?.files || []);
@@ -381,8 +455,10 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
   }, [order]);
 
   const updateStatus = (value: OrderStatus) => {
-    setStatus(value);
-    toast.success(`Statut mis à jour : ${value}`);
+    if (order) {
+      setStatus(value);
+      onStatusChange(order.id, value);
+    }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,7 +526,7 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
                       >
                         <p className="font-medium">{step}</p>
                         <p className="mt-1 text-xs">
-                          {order.history[index]?.details || "Cliquez pour définir ce statut"}
+                          {order.history?.[index]?.details || "Cliquez pour définir ce statut"}
                         </p>
                       </button>
                     );
@@ -475,7 +551,7 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {order.lines.map(line => (
+                      {order.lines?.map(line => (
                         <TableRow key={line.id}>
                           <TableCell>{line.description}</TableCell>
                           <TableCell>{line.quantity}</TableCell>
@@ -493,10 +569,10 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
 
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">Livraisons</h3>
-                {order.deliveries.length === 0 ? (
+                {order.deliveries?.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Aucune livraison enregistrée pour le moment.</p>
                 ) : (
-                  order.deliveries.map(delivery => (
+                  order.deliveries?.map(delivery => (
                     <div key={delivery.id} className="rounded-lg border border-border bg-muted/30 p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <span>BL {delivery.deliveryNoteRef}</span>
@@ -506,7 +582,7 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
                       <div className="grid gap-2 text-sm">
                         {delivery.items.map(item => (
                           <div key={item.lineId} className="flex items-center justify-between">
-                            <span>{item.quantity} / {order.lines.find(line => line.id === item.lineId)?.quantity} reçus</span>
+                            <span>{item.quantity} / {order.lines?.find(line => line.id === item.lineId)?.quantity} reçus</span>
                             <Badge variant="outline" className="text-xs">Partiel</Badge>
                           </div>
                         ))}
@@ -545,7 +621,7 @@ const OrderDetailSheet = ({ order, onOpenChange }: { order: Order | null; onOpen
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold uppercase text-muted-foreground">Historique</h3>
                 <div className="relative border-l border-dashed border-border pl-4">
-                  {order.history.map(activity => (
+                  {order.history?.map(activity => (
                     <div key={activity.id} className="relative pb-4">
                       <span className="absolute -left-2 h-3 w-3 rounded-full border border-primary bg-background" />
                       <p className="text-xs text-muted-foreground">{format(activity.at, "dd MMM yyyy", { locale: fr })}</p>

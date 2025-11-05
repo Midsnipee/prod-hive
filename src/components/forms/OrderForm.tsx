@@ -11,13 +11,15 @@ import { toast } from 'sonner';
 import { Order } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
 import { Supplier } from '@/lib/db';
+import { Upload } from 'lucide-react';
 
 const orderSchema = z.object({
   reference: z.string().min(2, 'La référence est requise'),
   supplier: z.string().min(1, 'Le fournisseur est requis'),
   amount: z.number().min(0, 'Le montant doit être positif'),
   status: z.enum(['Demandé', 'Circuit interne', 'Commande fournisseur faite', 'Livré']),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  description: z.string().optional()
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -30,6 +32,7 @@ interface OrderFormProps {
 
 export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   useEffect(() => {
     db.suppliers.toArray().then(setSuppliers);
@@ -42,13 +45,15 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
       supplier: order.supplier,
       amount: order.amount,
       status: order.status,
-      notes: ''
+      notes: '',
+      description: order.description || ''
     } : {
       reference: '',
       supplier: '',
       amount: 0,
       status: 'Demandé',
-      notes: ''
+      notes: '',
+      description: ''
     }
   });
 
@@ -64,6 +69,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         currency: 'EUR',
         site: order?.site || '',
         requestedBy: order?.requestedBy || '',
+        description: values.description || '',
         tags: order?.tags || [],
         lines: order?.lines || [],
         deliveries: order?.deliveries || [],
@@ -76,13 +82,19 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
           reference: orderData.reference,
           supplier: orderData.supplier,
           amount: orderData.amount,
-          status: orderData.status
+          status: orderData.status,
+          description: orderData.description
         });
         toast.success('Commande mise à jour');
       } else {
         await db.orders.add(orderData);
         toast.success('Commande créée');
       }
+      
+      if (pdfFile) {
+        toast.info('Upload de PDF en cours de développement');
+      }
+      
       onSuccess();
     } catch (error) {
       toast.error('Erreur lors de la sauvegarde');
@@ -176,6 +188,20 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
 
         <FormField
           control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Description du devis..." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="notes"
           render={({ field }) => (
             <FormItem>
@@ -187,6 +213,24 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
             </FormItem>
           )}
         />
+
+        <div className="space-y-2">
+          <FormLabel>Document PDF (optionnel)</FormLabel>
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+              className="flex-1"
+            />
+            {pdfFile && (
+              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                <Upload className="h-4 w-4" />
+                {pdfFile.name}
+              </span>
+            )}
+          </div>
+        </div>
 
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
