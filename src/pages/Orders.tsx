@@ -53,8 +53,8 @@ const Orders = () => {
   const [referenceSort, setReferenceSort] = useState<"asc" | "desc" | null>(null);
   const [amountSort, setAmountSort] = useState<"asc" | "desc" | null>(null);
   const [requestedByFilter, setRequestedByFilter] = useState("");
-  const [supplierFilter, setSupplierFilter] = useState("");
-  const [siteFilter, setSiteFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
 
   useEffect(() => {
     loadOrders();
@@ -93,8 +93,8 @@ const Orders = () => {
       const matchesSupplier = selectedSupplier === "all" || order.supplier === selectedSupplier;
       const matchesDate = (!dateRange.from || order.createdAt >= dateRange.from) && (!dateRange.to || order.createdAt <= dateRange.to);
       const matchesRequestedBy = !requestedByFilter || order.requestedBy?.toLowerCase().includes(requestedByFilter.toLowerCase());
-      const matchesSupplierFilter = !supplierFilter || order.supplier?.toLowerCase().includes(supplierFilter.toLowerCase());
-      const matchesSite = !siteFilter || order.site?.toLowerCase().includes(siteFilter.toLowerCase());
+      const matchesSupplierFilter = supplierFilter === "all" || order.supplier?.toLowerCase().includes(supplierFilter.toLowerCase());
+      const matchesSite = siteFilter === "all" || order.site?.toLowerCase().includes(siteFilter.toLowerCase());
       return matchesSearch && matchesStatus && matchesSupplier && matchesDate && matchesRequestedBy && matchesSupplierFilter && matchesSite;
     }).sort((a, b) => {
       if (referenceSort === "asc") return a.reference.localeCompare(b.reference);
@@ -114,8 +114,8 @@ const Orders = () => {
     setSelectedSupplier("all");
     setDateRange({});
     setRequestedByFilter("");
-    setSupplierFilter("");
-    setSiteFilter("");
+    setSupplierFilter("all");
+    setSiteFilter("all");
     setReferenceSort(null);
     setAmountSort(null);
   };
@@ -161,7 +161,7 @@ const Orders = () => {
             <Filter className="h-4 w-4" />
             Filtres
           </Button>
-          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to || requestedByFilter || supplierFilter || siteFilter || referenceSort || amountSort) && (
+          {(selectedStatuses.length > 0 || selectedSupplier !== "all" || dateRange.from || dateRange.to || requestedByFilter || supplierFilter !== "all" || siteFilter !== "all" || referenceSort || amountSort) && (
             <Button variant="ghost" onClick={clearFilters}>
               Réinitialiser
             </Button>
@@ -179,7 +179,7 @@ const Orders = () => {
               <SelectValue placeholder="Filtrer par fournisseur" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les fournisseurs</SelectItem>
+              <SelectItem value="all">Tous les fournisseurs</SelectItem>
               {suppliers.map(supplier => (
                 <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
               ))}
@@ -191,7 +191,7 @@ const Orders = () => {
               <SelectValue placeholder="Filtrer par site" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous les sites</SelectItem>
+              <SelectItem value="all">Tous les sites</SelectItem>
               {uniqueSites.map(site => (
                 <SelectItem key={site} value={site}>{site}</SelectItem>
               ))}
