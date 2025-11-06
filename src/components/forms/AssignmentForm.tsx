@@ -69,9 +69,17 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
 
   const onSubmit = async (values: AssignmentFormValues) => {
     try {
+      // Trouver le serial correspondant
+      const serial = await db.serials.where('serialNumber').equals(values.serialNumber).first();
+      
+      if (!serial) {
+        toast.error('Numéro de série introuvable');
+        return;
+      }
+
       const assignmentData: Assignment = {
         id: assignment?.id || crypto.randomUUID(),
-        serialId: '',
+        serialId: serial.id,
         serialNumber: values.serialNumber,
         materialName: values.materialName,
         assignedTo: values.assignedTo,
@@ -87,11 +95,20 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
         await db.assignments.update(assignment.id, assignmentData);
         toast.success('Attribution mise à jour');
       } else {
+        // Créer l'attribution
         await db.assignments.add(assignmentData);
+        
+        // Mettre à jour le statut du serial et l'assignation
+        await db.serials.update(serial.id, {
+          status: 'Attribué',
+          assignedTo: values.assignedTo
+        });
+        
         toast.success('Attribution créée');
       }
       onSuccess();
     } catch (error) {
+      console.error('Error saving assignment:', error);
       toast.error('Erreur lors de la sauvegarde');
     }
   };

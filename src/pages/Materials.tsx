@@ -196,7 +196,7 @@ const Materials = () => {
                   <TableCell>{material.defaultSupplier}</TableCell>
                   <TableCell>
                     <div className="flex flex-col text-sm">
-                      <span className={cn("font-semibold", isLow && "text-warning")}>{material.stock} sérialisés</span>
+                      <span className={cn("font-semibold", isLow && "text-warning")}>{material.stock} en stock</span>
                       {material.nonSerializedStock > 0 && (
                         <span className="text-xs text-muted-foreground">+ {material.nonSerializedStock} non sérialisés</span>
                       )}
