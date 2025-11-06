@@ -11,7 +11,9 @@ import { toast } from 'sonner';
 import { Order } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
 import { Supplier } from '@/lib/db';
-import { Upload } from 'lucide-react';
+import { Upload, Loader2, X, Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const orderSchema = z.object({
   reference: z.string().min(2, 'La référence est requise'),
@@ -30,9 +32,17 @@ interface OrderFormProps {
   onCancel: () => void;
 }
 
+interface OrderLine {
+  materialName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
 
   useEffect(() => {
     db.suppliers.toArray().then(setSuppliers);
@@ -56,6 +66,70 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
       description: ''
     }
   });
+
+  const handlePdfUpload = async (file: File) => {
+    setPdfFile(file);
+    setIsExtracting(true);
+    
+    try {
+      // Convert PDF to base64
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      await new Promise<void>((resolve, reject) => {
+        reader.onload = async () => {
+          try {
+            const base64 = (reader.result as string).split(',')[1];
+            
+            const { data, error } = await supabase.functions.invoke('extract-quote', {
+              body: { pdfBase64: base64 }
+            });
+            
+            if (error) throw error;
+            
+            if (data && data.lines && data.totalAmount) {
+              setOrderLines(data.lines);
+              form.setValue('amount', data.totalAmount);
+              toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
+            } else {
+              toast.error('Impossible d\'extraire les données du PDF');
+            }
+            
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = reject;
+      });
+    } catch (error) {
+      console.error('Error extracting PDF:', error);
+      toast.error('Erreur lors de l\'analyse du PDF');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  const calculateTotal = () => {
+    const total = orderLines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);
+    form.setValue('amount', total);
+  };
+
+  const addOrderLine = () => {
+    setOrderLines([...orderLines, { materialName: '', quantity: 1, unitPrice: 0 }]);
+  };
+
+  const updateOrderLine = (index: number, field: keyof OrderLine, value: string | number) => {
+    const updated = [...orderLines];
+    updated[index] = { ...updated[index], [field]: value };
+    setOrderLines(updated);
+    calculateTotal();
+  };
+
+  const removeOrderLine = (index: number) => {
+    setOrderLines(orderLines.filter((_, i) => i !== index));
+    setTimeout(calculateTotal, 0);
+  };
 
   const onSubmit = async (values: OrderFormValues) => {
     try {
@@ -89,10 +163,6 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
       } else {
         await db.orders.add(orderData);
         toast.success('Commande créée');
-      }
-      
-      if (pdfFile) {
-        toast.info('Upload de PDF en cours de développement');
       }
       
       onSuccess();
@@ -215,22 +285,105 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         />
 
         <div className="space-y-2">
-          <FormLabel>Document PDF (optionnel)</FormLabel>
+          <FormLabel>Document PDF de devis</FormLabel>
           <div className="flex items-center gap-2">
             <Input
               type="file"
               accept="application/pdf"
-              onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handlePdfUpload(file);
+              }}
               className="flex-1"
+              disabled={isExtracting}
             />
-            {pdfFile && (
+            {isExtracting && (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            )}
+            {pdfFile && !isExtracting && (
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <Upload className="h-4 w-4" />
                 {pdfFile.name}
               </span>
             )}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Téléchargez un devis PDF pour extraire automatiquement les lignes de commande
+          </p>
         </div>
+
+        {orderLines.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <FormLabel>Lignes de commande extraites</FormLabel>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addOrderLine}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Ajouter une ligne
+              </Button>
+            </div>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Matériel</TableHead>
+                    <TableHead className="w-24">Quantité</TableHead>
+                    <TableHead className="w-32">Prix unitaire</TableHead>
+                    <TableHead className="w-32">Total</TableHead>
+                    <TableHead className="w-16"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderLines.map((line, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Input
+                          value={line.materialName}
+                          onChange={(e) => updateOrderLine(index, 'materialName', e.target.value)}
+                          placeholder="Nom du matériel"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          value={line.quantity}
+                          onChange={(e) => updateOrderLine(index, 'quantity', parseInt(e.target.value) || 0)}
+                          min="1"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={line.unitPrice}
+                          onChange={(e) => updateOrderLine(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {(line.quantity * line.unitPrice).toFixed(2)} €
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeOrderLine(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 justify-end">
           <Button type="button" variant="outline" onClick={onCancel}>
