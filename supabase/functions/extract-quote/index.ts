@@ -11,11 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfBase64 } = await req.json();
+    const { pdfText } = await req.json();
     
-    if (!pdfBase64) {
+    if (!pdfText) {
       return new Response(
-        JSON.stringify({ error: 'PDF data is required' }),
+        JSON.stringify({ error: 'PDF text is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -42,39 +42,16 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `Tu es un assistant spécialisé dans l'extraction de données de devis PDF. 
-Analyse le document et extrait les informations suivantes:
+            content: `Tu es un assistant spécialisé dans l'extraction de données de devis. 
+Analyse le texte du devis et extrait les informations suivantes:
 - Les lignes de commande avec: nom du matériel, quantité, prix unitaire
 - Le montant total TTC
 
-Réponds UNIQUEMENT avec un JSON valide au format suivant (sans markdown, sans code blocks):
-{
-  "lines": [
-    {
-      "materialName": "Nom du produit",
-      "quantity": 1,
-      "unitPrice": 99.99
-    }
-  ],
-  "totalAmount": 199.99
-}
-
-Si tu ne peux pas extraire certaines informations, utilise des valeurs par défaut raisonnables.`
+Réponds en utilisant la fonction extract_quote_data fournie.`
           },
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Analyse ce devis et extrait les lignes de commande et le montant total.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`
-                }
-              }
-            ]
+            content: `Analyse ce devis et extrait les lignes de commande et le montant total:\n\n${pdfText}`
           }
         ],
         tools: [

@@ -14,6 +14,7 @@ import { Supplier } from '@/lib/db';
 import { Upload, Loader2, X, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import * as pdfjsLib from 'pdfjs-dist';
 
 const orderSchema = z.object({
   reference: z.string().min(2, 'La référence est requise'),
@@ -72,36 +73,36 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
     setIsExtracting(true);
     
     try {
-      // Convert PDF to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
+      // Configure PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+      // Read PDF file as ArrayBuffer
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       
-      await new Promise<void>((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64 = (reader.result as string).split(',')[1];
-            
-            const { data, error } = await supabase.functions.invoke('extract-quote', {
-              body: { pdfBase64: base64 }
-            });
-            
-            if (error) throw error;
-            
-            if (data && data.lines && data.totalAmount) {
-              setOrderLines(data.lines);
-              form.setValue('amount', data.totalAmount);
-              toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
-            } else {
-              toast.error('Impossible d\'extraire les données du PDF');
-            }
-            
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        };
-        reader.onerror = reject;
+      // Extract text from all pages
+      let pdfText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        pdfText += pageText + '\n';
+      }
+
+      // Call edge function with extracted text
+      const { data, error } = await supabase.functions.invoke('extract-quote', {
+        body: { pdfText }
       });
+      
+      if (error) throw error;
+      
+      if (data && data.lines && data.totalAmount) {
+        setOrderLines(data.lines);
+        form.setValue('amount', data.totalAmount);
+        toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
+      } else {
+        toast.error('Impossible d\'extraire les données du PDF');
+      }
     } catch (error) {
       console.error('Error extracting PDF:', error);
       toast.error('Erreur lors de l\'analyse du PDF');
