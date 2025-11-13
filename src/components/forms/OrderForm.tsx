@@ -73,8 +73,8 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
     setIsExtracting(true);
     
     try {
-      // Configure PDF.js worker - using unpkg as CDN
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+      // Configure PDF.js worker using jsdelivr CDN which works better with Vite
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
       // Read PDF file as ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
