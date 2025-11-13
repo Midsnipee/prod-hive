@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -9,16 +9,13 @@ import {
   Clock,
   LayoutGrid,
   Package,
-  Plus,
   Shield,
   TrendingUp,
   Users,
   Wrench
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { mockAssignments, mockDashboardAlerts, mockMaterials, mockOrders, mockSerials } from "@/lib/mockData";
 import { DashboardWidget, DashboardWidgetConfig } from "@/components/dashboard/DashboardWidget";
-import { WidgetManager } from "@/components/dashboard/WidgetManager";
 import { Badge } from "@/components/ui/badge";
 
 const availableWidgets: DashboardWidgetConfig[] = [
@@ -226,43 +223,9 @@ const availableWidgets: DashboardWidgetConfig[] = [
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [managerOpen, setManagerOpen] = useState(false);
-  const [widgetOrder, setWidgetOrder] = useState(() => availableWidgets.map(widget => widget.id));
-  const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>([]);
   const [filters, setFilters] = useState({ period: "this-quarter", category: "all", supplier: "all", site: "all" });
 
-  const widgets = useMemo(
-    () =>
-      widgetOrder
-        .map(id => availableWidgets.find(widget => widget.id === id))
-        .filter((widget): widget is DashboardWidgetConfig => Boolean(widget)),
-    [widgetOrder]
-  );
-
-  const handleToggleWidget = (id: string) => {
-    setWidgetOrder(prev =>
-      prev.includes(id)
-        ? prev.filter(widgetId => widgetId !== id)
-        : [...prev, id]
-    );
-  };
-
-  const handleMoveWidget = (id: string, direction: "up" | "down") => {
-    setWidgetOrder(prev => {
-      const currentIndex = prev.indexOf(id);
-      if (currentIndex === -1) return prev;
-      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
-      const newOrder = [...prev];
-      const [removed] = newOrder.splice(currentIndex, 1);
-      newOrder.splice(targetIndex, 0, removed);
-      return newOrder;
-    });
-  };
-
-  const handleToggleCollapse = (id: string) => {
-    setCollapsedWidgets(prev => prev.includes(id) ? prev.filter(widgetId => widgetId !== id) : [...prev, id]);
-  };
+  const widgets = availableWidgets;
 
   return (
     <div className="space-y-6">
@@ -274,7 +237,7 @@ const Dashboard = () => {
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">
-            Personnalisez votre tableau de bord pour piloter vos opérations.
+            Surveillez les indicateurs clés de vos opérations en un coup d'œil.
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-4">
             <Badge variant="secondary" className="flex items-center gap-1">
@@ -289,10 +252,6 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setManagerOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Configurer les widgets
-          </Button>
           <DashboardWidget.Filters
             value={filters}
             onChange={setFilters}
@@ -307,21 +266,11 @@ const Dashboard = () => {
             key={widget.id}
             config={widget}
             filters={filters}
-            collapsed={collapsedWidgets.includes(widget.id)}
-            onToggleCollapse={() => handleToggleCollapse(widget.id)}
             onNavigate={path => navigate(path)}
           />
         ))}
       </div>
 
-      <WidgetManager
-        open={managerOpen}
-        onOpenChange={setManagerOpen}
-        availableWidgets={availableWidgets}
-        activeWidgetIds={widgetOrder}
-        onToggleWidget={handleToggleWidget}
-        onMoveWidget={handleMoveWidget}
-      />
     </div>
   );
 };

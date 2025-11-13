@@ -6,7 +6,8 @@ import {
   ShoppingCart, 
   Hash, 
   UserCheck,
-  Settings
+  Settings,
+  FlaskConical
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: "Numéros de série", href: "/serials", icon: Hash },
   { name: "Attributions", href: "/assignments", icon: UserCheck },
   { name: "Paramètres", href: "/settings", icon: Settings },
+  { name: "Test", href: "/test", icon: FlaskConical },
 ];
 
 export const Sidebar = () => {
