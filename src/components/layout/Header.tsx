@@ -14,11 +14,11 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export const Header = () => {
-  const { user, logout } = useAuth();
+  const { profile, roles, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -45,7 +45,7 @@ export const Header = () => {
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar>
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.displayName?.charAt(0) || 'U'}
+                  {profile?.display_name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -53,10 +53,10 @@ export const Header = () => {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">{user?.displayName}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-sm font-medium">{profile?.display_name}</p>
+                <p className="text-xs text-muted-foreground">{profile?.email}</p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  Rôle: {user?.role}
+                  Rôles: {roles.join(', ')}
                 </p>
               </div>
             </DropdownMenuLabel>
