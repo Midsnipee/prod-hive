@@ -17,14 +17,13 @@ interface UserRole {
 
 interface AuthContextType {
   user: User | null;
-  profile: Profile | null;
-  roles: string[];
   session: Session | null;
+  profile: Profile | null;
+  userRole: 'admin' | 'magasinier' | 'acheteur' | 'lecteur' | null;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => Promise<void>;
+  logout: () => void;
   register: (email: string, password: string, displayName: string, department: string, site: string) => Promise<boolean>;
   isLoading: boolean;
-  hasRole: (role: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,59 +32,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [roles, setRoles] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<'admin' | 'magasinier' | 'acheteur' | 'lecteur' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (!error && data) {
-      setProfile(data);
-    }
-  };
+  // Load user profile and role
+  const loadUserData = async (userId: string) => {
+    try {
+      // Load profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-  const fetchRoles = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-    
-    if (!error && data) {
-      setRoles(data.map((r: UserRole) => r.role));
+      if (profileError) throw profileError;
+      setProfile(profileData);
+
+      // Load role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (roleError) throw roleError;
+      setUserRole(roleData.role);
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
   };
 
   useEffect(() => {
     // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       
-      // Fetch profile and roles when user changes
-      if (currentSession?.user) {
+      if (session?.user) {
+        // Defer loading user data to avoid blocking auth state changes
         setTimeout(() => {
-          fetchProfile(currentSession.user.id);
-          fetchRoles(currentSession.user.id);
+          loadUserData(session.user.id);
         }, 0);
       } else {
         setProfile(null);
-        setRoles([]);
+        setUserRole(null);
       }
+      
+      setIsLoading(false);
     });
 
     // Check for existing session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       
-      if (currentSession?.user) {
-        fetchProfile(currentSession.user.id);
-        fetchRoles(currentSession.user.id);
+      if (session?.user) {
+        loadUserData(session.user.id);
       }
+      
       setIsLoading(false);
     });
 
@@ -98,21 +102,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       });
-      
+
       if (error) {
         toast.error('Email ou mot de passe incorrect');
         return false;
       }
 
       if (data.user) {
-        await fetchProfile(data.user.id);
-        await fetchRoles(data.user.id);
-        toast.success(`Bienvenue!`);
+        await loadUserData(data.user.id);
+        toast.success(`Bienvenue ${profile?.display_name || email}!`);
         return true;
       }
 
       return false;
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('Erreur lors de la connexion');
       return false;
     }
@@ -121,10 +125,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
       setProfile(null);
-      setRoles([]);
+      setUserRole(null);
       toast.success('Déconnexion réussie');
     } catch (error) {
+      console.error('Logout error:', error);
       toast.error('Erreur lors de la déconnexion');
     }
   };
@@ -137,11 +144,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     site: string
   ): Promise<boolean> => {
     try {
+      const redirectUrl = `${window.location.origin}/`;
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: redirectUrl,
           data: {
             display_name: displayName,
             department,
@@ -149,7 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           },
         },
       });
-      
+
       if (error) {
         if (error.message.includes('already registered')) {
           toast.error('Cet email est déjà utilisé');
@@ -166,17 +175,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       return false;
     } catch (error) {
+      console.error('Registration error:', error);
       toast.error('Erreur lors de la création du compte');
       return false;
     }
   };
 
-  const hasRole = (role: string): boolean => {
-    return roles.includes(role);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, profile, roles, session, login, logout, register, isLoading, hasRole }}>
+    <AuthContext.Provider value={{ user, session, profile, userRole, login, logout, register, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

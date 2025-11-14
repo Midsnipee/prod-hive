@@ -105,11 +105,6 @@ export default function Login() {
                     <Button type="submit" className="w-full" disabled={isLoading}>
                       {isLoading ? 'Connexion...' : 'Se connecter'}
                     </Button>
-                    <div className="text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded">
-                      <p className="font-semibold mb-2">Comptes de test :</p>
-                      <p>Admin: admin@stock.local / admin123</p>
-                      <p>Magasinier: magasinier@stock.local / mag123</p>
-                    </div>
                   </form>
                 </Form>
               </CardContent>
