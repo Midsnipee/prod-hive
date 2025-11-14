@@ -14,7 +14,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export const Header = () => {
-  const { profile, roles, logout } = useAuth();
+  const { profile, userRole, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -56,7 +56,7 @@ export const Header = () => {
                 <p className="text-sm font-medium">{profile?.display_name}</p>
                 <p className="text-xs text-muted-foreground">{profile?.email}</p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  Rôles: {roles.join(', ')}
+                  Rôle: {userRole || 'Chargement...'}
                 </p>
               </div>
             </DropdownMenuLabel>
