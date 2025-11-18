@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
 import { DeliverySerialForm } from "@/components/forms/DeliverySerialForm";
 import { supabase } from "@/integrations/supabase/client";
+import { DeliveryProgressTable } from "@/components/orders/DeliveryProgressTable";
 
 const statusColors: Record<OrderStatus, string> = {
   "Demandé": "border-border bg-muted text-muted-foreground",
@@ -105,20 +106,55 @@ const Orders = () => {
         return;
       }
 
-      // Create serials in database
+      // Process each order line
       for (const [lineId, serials] of Object.entries(serialNumbers)) {
         const line = pendingDeliveryOrder.lines.find(l => l.id === lineId);
-        if (!line) continue;
+        if (!line || serials.length === 0) continue;
 
+        // Check if material exists in Supabase, create if not
+        const { data: existingMaterial } = await supabase
+          .from('materials')
+          .select('id')
+          .eq('id', line.itemId)
+          .maybeSingle();
+
+        if (!existingMaterial) {
+          // Create material from order line
+          const { error: materialError } = await supabase
+            .from('materials')
+            .insert({
+              id: line.itemId,
+              name: line.description,
+              category: 'Autre',
+              stock: 0,
+              unit_price: line.unitPrice,
+            });
+
+          if (materialError) {
+            console.error('Error creating material:', materialError);
+            toast.error(`Erreur lors de la création du matériel: ${line.description}`);
+            continue;
+          }
+        }
+
+        // Get the order_line_id from Supabase
+        const { data: orderLineData } = await supabase
+          .from('order_lines')
+          .select('id, delivered_quantity, quantity')
+          .eq('order_id', pendingDeliveryOrder.id)
+          .eq('material_name', line.description)
+          .maybeSingle();
+
+        // Create serials in Supabase
         for (const serialNumber of serials) {
           if (serialNumber.trim() === "") continue;
 
-          // Insert serial into Supabase
           const { error } = await supabase
             .from('serials')
             .insert({
               serial_number: serialNumber,
               material_id: line.itemId,
+              order_line_id: orderLineData?.id || null,
               status: 'En stock',
               purchase_date: new Date().toISOString(),
             });
@@ -128,24 +164,47 @@ const Orders = () => {
             toast.error(`Erreur lors de la création du numéro de série: ${serialNumber}`);
           }
         }
+
+        // Update delivered quantity in order_line
+        if (orderLineData) {
+          const newDeliveredQty = (orderLineData.delivered_quantity || 0) + serials.filter(s => s.trim() !== "").length;
+          await supabase
+            .from('order_lines')
+            .update({ delivered_quantity: newDeliveredQty })
+            .eq('id', orderLineData.id);
+        }
       }
 
-      // Update order status
-      await db.orders.update(pendingDeliveryOrder.id, { status: "Livré" });
-      
-      setOrders(prevOrders =>
-        prevOrders.map(order =>
-          order.id === pendingDeliveryOrder.id ? { ...order, status: "Livré" as OrderStatus } : order
-        )
+      // Check if all order lines are fully delivered
+      const { data: allOrderLines } = await supabase
+        .from('order_lines')
+        .select('quantity, delivered_quantity')
+        .eq('order_id', pendingDeliveryOrder.id);
+
+      const isFullyDelivered = allOrderLines?.every(
+        line => (line.delivered_quantity || 0) >= line.quantity
       );
-      
-      if (selectedOrder?.id === pendingDeliveryOrder.id) {
-        setSelectedOrder({ ...selectedOrder, status: "Livré" });
+
+      // Only update to "Livré" if fully delivered
+      if (isFullyDelivered) {
+        await db.orders.update(pendingDeliveryOrder.id, { status: "Livré" });
+        
+        setOrders(prevOrders =>
+          prevOrders.map(order =>
+            order.id === pendingDeliveryOrder.id ? { ...order, status: "Livré" as OrderStatus } : order
+          )
+        );
+        
+        if (selectedOrder?.id === pendingDeliveryOrder.id) {
+          setSelectedOrder({ ...selectedOrder, status: "Livré" });
+        }
+        toast.success('Livraison complète enregistrée avec succès');
+      } else {
+        toast.success('Livraison partielle enregistrée. Vous pouvez compléter la livraison plus tard.');
       }
 
       setShowDeliveryDialog(false);
       setPendingDeliveryOrder(null);
-      toast.success('Livraison enregistrée avec succès');
     } catch (error) {
       console.error('Error handling delivery:', error);
       toast.error('Erreur lors de l\'enregistrement de la livraison');
@@ -385,6 +444,10 @@ const Orders = () => {
         order={selectedOrder} 
         onOpenChange={(open) => !open && setSelectedOrder(null)}
         onStatusChange={handleStatusChange}
+        onOpenDeliveryDialog={(order) => {
+          setPendingDeliveryOrder(order);
+          setShowDeliveryDialog(true);
+        }}
       />
       
       <Dialog open={showNewOrderDialog} onOpenChange={setShowNewOrderDialog}>
@@ -521,9 +584,10 @@ interface OrderDetailSheetProps {
   order: Order | null;
   onOpenChange: (open: boolean) => void;
   onStatusChange: (orderId: string, newStatus: OrderStatus) => void;
+  onOpenDeliveryDialog: (order: Order) => void;
 }
 
-const OrderDetailSheet = ({ order, onOpenChange, onStatusChange }: OrderDetailSheetProps) => {
+const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryDialog }: OrderDetailSheetProps) => {
   const [status, setStatus] = useState<OrderStatus | undefined>(order?.status);
   const [description, setDescription] = useState<string>(order?.description || "");
   const [uploadedFiles, setUploadedFiles] = useState<OrderFile[]>(order?.files || []);
@@ -617,34 +681,20 @@ const OrderDetailSheet = ({ order, onOpenChange, onStatusChange }: OrderDetailSh
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold uppercase text-muted-foreground">Lignes de commande</h3>
-                  <span className="text-sm text-muted-foreground">Montant total : {new Intl.NumberFormat("fr-FR", { style: "currency", currency: order.currency }).format(order.amount)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Montant total : {new Intl.NumberFormat("fr-FR", { style: "currency", currency: order.currency }).format(order.amount)}</span>
+                    {(status === "Commande fournisseur faite" || status === "Livré") && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenDeliveryDialog(order)}
+                      >
+                        {status === "Livré" ? "Compléter la livraison" : "Saisir les numéros de série"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="rounded-lg border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Article</TableHead>
-                        <TableHead>Quantité</TableHead>
-                        <TableHead>PU</TableHead>
-                        <TableHead>TVA</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {order.lines?.map(line => (
-                        <TableRow key={line.id}>
-                          <TableCell>{line.description}</TableCell>
-                          <TableCell>{line.quantity}</TableCell>
-                          <TableCell>{new Intl.NumberFormat("fr-FR", { style: "currency", currency: order.currency }).format(line.unitPrice)}</TableCell>
-                          <TableCell>{line.taxRate}%</TableCell>
-                          <TableCell className="text-right font-medium">
-                            {new Intl.NumberFormat("fr-FR", { style: "currency", currency: order.currency }).format(line.unitPrice * line.quantity)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DeliveryProgressTable orderId={order.id} orderLines={order.lines || []} currency={order.currency} />
               </section>
 
               <section className="space-y-3">
