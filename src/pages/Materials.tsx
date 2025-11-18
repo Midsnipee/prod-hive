@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Textarea } from "@/components/ui/textarea";
 import { MaterialForm } from "@/components/forms/MaterialForm";
 import { db } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 
 const Materials = () => {
   const navigate = useNavigate();
@@ -45,8 +46,54 @@ const Materials = () => {
   }, []);
 
   const loadMaterials = async () => {
-    const materialsFromDb = await db.materials.toArray();
-    setMaterials(materialsFromDb);
+    // Load from Supabase
+    const { data: supabaseMaterials, error } = await supabase
+      .from('materials')
+      .select('*');
+
+    if (error) {
+      console.error('Error loading materials:', error);
+      toast.error('Erreur lors du chargement des matériels');
+      return;
+    }
+
+    // Map Supabase categories to local categories
+    const mapCategory = (supabaseCategory: string): Material['category'] => {
+      const categoryMap: Record<string, Material['category']> = {
+        'PC Portable': 'PC Portable',
+        'Écran': 'Écran',
+        'Fixe': 'PC Portable',
+        'Clavier': 'Accessoire',
+        'Souris': 'Accessoire',
+        'Casque': 'Accessoire',
+        'Webcam': 'Accessoire',
+        'Autre': 'Accessoire'
+      };
+      return categoryMap[supabaseCategory] || 'Accessoire';
+    };
+
+    // Map Supabase data to local format
+    const mappedMaterials: Material[] = (supabaseMaterials || []).map(mat => ({
+      id: mat.id,
+      name: mat.name,
+      internalRef: mat.name,
+      category: mapCategory(mat.category),
+      stock: mat.stock,
+      lowStockThreshold: mat.min_stock || 0,
+      tags: [],
+      site: 'Siège',
+      defaultSupplier: mat.manufacturer || 'Inconnu',
+      unitPrice: mat.unit_price || 0,
+      defaultUnitPrice: mat.unit_price || 0,
+      description: mat.description || '',
+      serialized: true,
+      warranty: 0,
+      minOrderQty: 1,
+      pendingDeliveries: 0,
+      nonSerializedStock: 0
+    }));
+
+    setMaterials(mappedMaterials);
   };
 
   const categories = useMemo(() => Array.from(new Set(materials.map(material => material.category))), [materials]);
