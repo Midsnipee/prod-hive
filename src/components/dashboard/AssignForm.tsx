@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -52,8 +52,10 @@ interface AssignFormProps {
 }
 
 export function AssignForm({ onSuccess }: AssignFormProps) {
-  const [serials, setSerials] = useState<Array<{ id: string; serial_number: string; material_name: string }>>([]);
+  const [serials, setSerials] = useState<Array<{ id: string; serial_number: string; material_name: string; material_id: string }>>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
+  const [assignmentData, setAssignmentData] = useState<any>(null);
   const { toast } = useToast();
 
   const form = useForm<AssignFormValues>({
@@ -99,6 +101,7 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
         id: s.id,
         serial_number: s.serial_number,
         material_name: s.materials?.name || "Inconnu",
+        material_id: s.material_id,
       }))
     );
   };
@@ -160,10 +163,222 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
       description: "Le matériel a été attribué avec succès",
     });
 
+    // If status is Télétravail, show print dialog
+    if (values.status === "Télétravail") {
+      // Get full material details
+      const { data: materialData } = await supabase
+        .from("materials")
+        .select("name, model, manufacturer")
+        .eq("id", selectedSerial.material_id)
+        .single();
+
+      setAssignmentData({
+        serialNumber: selectedSerial.serial_number,
+        materialName: materialData?.name || selectedSerial.material_name,
+        model: materialData?.model || "N/A",
+        manufacturer: materialData?.manufacturer || "N/A",
+        assignedTo: values.assignedTo,
+        department: values.department,
+        startDate: format(values.startDate, "dd/MM/yyyy"),
+      });
+      setShowPrintDialog(true);
+    }
+
     form.reset();
     setIsLoading(false);
+    if (values.status !== "Télétravail") {
+      onSuccess();
+    }
+  };
+
+  const handlePrint = () => {
+    if (!assignmentData) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const documentText = `Ce document certifie que le matériel ci-dessous a été confié en télétravail.
+    
+L'utilisateur s'engage à :
+- Utiliser le matériel uniquement à des fins professionnelles
+- Assurer la sécurité et la confidentialité des données
+- Maintenir le matériel en bon état
+- Restituer le matériel sur demande de l'entreprise
+
+Tout dommage ou perte devra être signalé immédiatement.`;
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Document d'Attribution Télétravail</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 40px;
+              max-width: 800px;
+              margin: 0 auto;
+            }
+            h1 {
+              color: #1e40af;
+              text-align: center;
+              margin-bottom: 30px;
+            }
+            .info-section {
+              margin: 30px 0;
+              border: 1px solid #e5e7eb;
+              padding: 20px;
+              border-radius: 8px;
+            }
+            .info-row {
+              display: flex;
+              margin: 10px 0;
+              padding: 8px 0;
+              border-bottom: 1px solid #f3f4f6;
+            }
+            .info-row:last-child {
+              border-bottom: none;
+            }
+            .info-label {
+              font-weight: bold;
+              width: 180px;
+              color: #374151;
+            }
+            .info-value {
+              color: #1f2937;
+            }
+            .text-section {
+              margin: 30px 0;
+              padding: 20px;
+              background-color: #f9fafb;
+              border-left: 4px solid #1e40af;
+              white-space: pre-line;
+              line-height: 1.6;
+            }
+            .signature-section {
+              margin-top: 60px;
+              display: flex;
+              justify-content: space-between;
+            }
+            .signature-box {
+              width: 45%;
+            }
+            .signature-line {
+              border-top: 1px solid #000;
+              margin-top: 60px;
+              padding-top: 8px;
+              text-align: center;
+            }
+            @media print {
+              body {
+                padding: 20px;
+              }
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Document d'Attribution Télétravail</h1>
+          
+          <div class="info-section">
+            <h2 style="margin-top: 0; color: #1e40af;">Informations du Matériel</h2>
+            <div class="info-row">
+              <span class="info-label">Matériel :</span>
+              <span class="info-value">${assignmentData.materialName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Modèle :</span>
+              <span class="info-value">${assignmentData.model}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Fabricant :</span>
+              <span class="info-value">${assignmentData.manufacturer}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Numéro de série :</span>
+              <span class="info-value">${assignmentData.serialNumber}</span>
+            </div>
+          </div>
+
+          <div class="info-section">
+            <h2 style="margin-top: 0; color: #1e40af;">Informations de l'Attribution</h2>
+            <div class="info-row">
+              <span class="info-label">Attribué à :</span>
+              <span class="info-value">${assignmentData.assignedTo}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Département :</span>
+              <span class="info-value">${assignmentData.department}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Date de début :</span>
+              <span class="info-value">${assignmentData.startDate}</span>
+            </div>
+          </div>
+
+          <div class="text-section">
+            ${documentText}
+          </div>
+
+          <div class="signature-section">
+            <div class="signature-box">
+              <div class="signature-line">
+                Signature de l'employé
+              </div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-line">
+                Signature du responsable
+              </div>
+            </div>
+          </div>
+
+          <div class="no-print" style="margin-top: 40px; text-align: center;">
+            <button onclick="window.print()" style="padding: 12px 24px; background-color: #1e40af; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">
+              Imprimer
+            </button>
+            <button onclick="window.close()" style="padding: 12px 24px; background-color: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-left: 10px;">
+              Fermer
+            </button>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handleSkipPrint = () => {
+    setShowPrintDialog(false);
+    setAssignmentData(null);
     onSuccess();
   };
+
+  if (showPrintDialog) {
+    return (
+      <div className="space-y-4">
+        <div className="p-4 bg-muted rounded-lg">
+          <h3 className="font-semibold mb-2 flex items-center gap-2">
+            <Printer className="h-5 w-5" />
+            Document prêt à imprimer
+          </h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            L'attribution a été créée avec succès. Voulez-vous imprimer le document de télétravail ?
+          </p>
+          <div className="flex gap-2">
+            <Button onClick={handlePrint} className="flex-1">
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimer le document
+            </Button>
+            <Button onClick={handleSkipPrint} variant="outline" className="flex-1">
+              Passer
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
