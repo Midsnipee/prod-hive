@@ -26,6 +26,8 @@ import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/db";
+import { DeliverySerialForm } from "@/components/forms/DeliverySerialForm";
+import { supabase } from "@/integrations/supabase/client";
 
 const statusColors: Record<OrderStatus, string> = {
   "Demandé": "border-border bg-muted text-muted-foreground",
@@ -55,6 +57,8 @@ const Orders = () => {
   const [requestedByFilter, setRequestedByFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [siteFilter, setSiteFilter] = useState("all");
+  const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
+  const [pendingDeliveryOrder, setPendingDeliveryOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -66,6 +70,15 @@ const Orders = () => {
   };
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    
+    // If changing to "Livré", show serial number input dialog
+    if (newStatus === "Livré" && order) {
+      setPendingDeliveryOrder(order);
+      setShowDeliveryDialog(true);
+      return;
+    }
+
     try {
       await db.orders.update(orderId, { status: newStatus });
       setOrders(prevOrders =>
@@ -79,6 +92,63 @@ const Orders = () => {
       toast.success('Statut mis à jour');
     } catch (error) {
       toast.error('Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  const handleDeliveryConfirm = async (serialNumbers: Record<string, string[]>) => {
+    if (!pendingDeliveryOrder) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Utilisateur non connecté");
+        return;
+      }
+
+      // Create serials in database
+      for (const [lineId, serials] of Object.entries(serialNumbers)) {
+        const line = pendingDeliveryOrder.lines.find(l => l.id === lineId);
+        if (!line) continue;
+
+        for (const serialNumber of serials) {
+          if (serialNumber.trim() === "") continue;
+
+          // Insert serial into Supabase
+          const { error } = await supabase
+            .from('serials')
+            .insert({
+              serial_number: serialNumber,
+              material_id: line.itemId,
+              status: 'En stock',
+              purchase_date: new Date().toISOString(),
+            });
+
+          if (error) {
+            console.error('Error creating serial:', error);
+            toast.error(`Erreur lors de la création du numéro de série: ${serialNumber}`);
+          }
+        }
+      }
+
+      // Update order status
+      await db.orders.update(pendingDeliveryOrder.id, { status: "Livré" });
+      
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === pendingDeliveryOrder.id ? { ...order, status: "Livré" as OrderStatus } : order
+        )
+      );
+      
+      if (selectedOrder?.id === pendingDeliveryOrder.id) {
+        setSelectedOrder({ ...selectedOrder, status: "Livré" });
+      }
+
+      setShowDeliveryDialog(false);
+      setPendingDeliveryOrder(null);
+      toast.success('Livraison enregistrée avec succès');
+    } catch (error) {
+      console.error('Error handling delivery:', error);
+      toast.error('Erreur lors de l\'enregistrement de la livraison');
     }
   };
 
@@ -335,6 +405,16 @@ const Orders = () => {
           />
         </DialogContent>
       </Dialog>
+
+      <DeliverySerialForm
+        open={showDeliveryDialog}
+        orderLines={pendingDeliveryOrder?.lines || []}
+        onConfirm={handleDeliveryConfirm}
+        onCancel={() => {
+          setShowDeliveryDialog(false);
+          setPendingDeliveryOrder(null);
+        }}
+      />
     </div>
   );
 };
