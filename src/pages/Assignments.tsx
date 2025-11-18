@@ -19,6 +19,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { ImportUsersCSV } from "@/components/settings/ImportUsersCSV";
 
 const Assignments = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,14 +44,15 @@ const Assignments = () => {
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <UserCog className="h-4 w-4" />
-            Cycle de vie utilisateur
+            Gestion des utilisateurs
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Attributions</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Utilisateurs</h1>
           <p className="text-muted-foreground mt-1 max-w-2xl">
-            Centralisez les affectations, générez des reçus PDF et programmez des rappels de restitution.
+            Gérez les utilisateurs, leurs attributions et générez des reçus PDF.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ImportUsersCSV />
           <Button variant="outline" className="gap-2" onClick={() => toast.success("Reçu généré (simulation)")}>
             <FileText className="h-4 w-4" />
             Générer un reçu
