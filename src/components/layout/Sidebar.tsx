@@ -4,7 +4,6 @@ import {
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
-  Hash, 
   UserCheck,
   Settings
 } from "lucide-react";
@@ -14,7 +13,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Matériels", href: "/materials", icon: Package },
   { name: "Commandes", href: "/orders", icon: ShoppingCart },
-  { name: "Numéros de série", href: "/serials", icon: Hash },
   { name: "Attributions", href: "/assignments", icon: UserCheck },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
