@@ -14,6 +14,7 @@ import { Supplier } from '@/lib/db';
 import { Upload, Loader2, X, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const orderSchema = z.object({
@@ -327,7 +328,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
                 Ajouter une ligne
               </Button>
             </div>
-            <div className="border rounded-md">
+            <ScrollArea className="h-[400px] border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -382,7 +383,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </ScrollArea>
           </div>
         )}
 
