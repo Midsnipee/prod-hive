@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { Order } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
 import { Supplier } from '@/lib/db';
-import { Upload, Loader2, X, Plus } from 'lucide-react';
+import { Upload, Loader2, X, Plus, FileDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -56,6 +56,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
     phone: '',
     address: ''
   });
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
     db.suppliers.toArray().then(setSuppliers);
@@ -197,6 +198,43 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
     } catch (error) {
       console.error('Error creating supplier:', error);
       toast.error('Erreur lors de la création du fournisseur');
+    }
+  };
+
+  const handleGeneratePdf = async () => {
+    const values = form.getValues();
+    
+    if (!values.reference || !values.supplier || orderLines.length === 0) {
+      toast.error('Veuillez remplir la référence, le fournisseur et ajouter au moins une ligne de commande');
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-quote-pdf', {
+        body: {
+          reference: values.reference,
+          supplier: values.supplier,
+          amount: values.amount,
+          description: values.description,
+          lines: orderLines,
+          date: new Date().toISOString()
+        }
+      });
+
+      if (error) throw error;
+
+      // Open PDF in new window
+      const blob = new Blob([data], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      toast.success('PDF généré avec succès');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -401,20 +439,20 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
           )}
         />
 
-        {orderLines.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <FormLabel>Lignes de commande extraites</FormLabel>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addOrderLine}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Ajouter une ligne
-              </Button>
-            </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <FormLabel>Lignes de commande</FormLabel>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addOrderLine}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Ajouter une ligne
+            </Button>
+          </div>
+          {orderLines.length > 0 ? (
             <ScrollArea className="h-[250px] border rounded-md">
               <Table>
                 <TableHeader>
@@ -471,16 +509,40 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
                 </TableBody>
               </Table>
             </ScrollArea>
-          </div>
-        )}
+          ) : (
+            <div className="border rounded-md p-8 text-center text-muted-foreground">
+              <p>Aucune ligne de commande. Cliquez sur "Ajouter une ligne" pour commencer.</p>
+            </div>
+          )}
+        </div>
 
-        <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Annuler
+        <div className="flex gap-2 justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGeneratePdf}
+            disabled={isGeneratingPdf || orderLines.length === 0}
+          >
+            {isGeneratingPdf ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Génération...
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4 mr-2" />
+                Générer PDF
+              </>
+            )}
           </Button>
-          <Button type="submit">
-            {order ? 'Mettre à jour' : 'Créer'}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Annuler
+            </Button>
+            <Button type="submit">
+              {order ? 'Mettre à jour' : 'Créer'}
+            </Button>
+          </div>
         </div>
       </form>
     </Form>
