@@ -16,6 +16,8 @@ import { Material, Serial, SerialStatus } from "@/lib/mockData";
 import { ArrowLeft, ArrowUpDown, Edit, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { addDays } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MaterialForm } from "@/components/forms/MaterialForm";
 import { AssignmentForm } from "@/components/forms/AssignmentForm";
@@ -42,12 +44,72 @@ const MaterialDetail = () => {
   const loadData = async () => {
     if (!id) return;
     
-    const materialData = await db.materials.get(id);
-    if (materialData) {
+    // Load material from Supabase
+    const { data: supabaseMaterial, error: materialError } = await supabase
+      .from('materials')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (materialError) {
+      console.error('Error loading material:', materialError);
+      toast.error('Erreur lors du chargement du matériel');
+      return;
+    }
+
+    if (supabaseMaterial) {
+      // Map to local Material format
+      const materialData: Material = {
+        id: supabaseMaterial.id,
+        name: supabaseMaterial.name,
+        internalRef: supabaseMaterial.name,
+        category: 'Accessoire',
+        stock: supabaseMaterial.stock,
+        lowStockThreshold: supabaseMaterial.min_stock || 0,
+        tags: [],
+        site: 'Siège',
+        defaultSupplier: supabaseMaterial.manufacturer || 'Inconnu',
+        defaultUnitPrice: supabaseMaterial.unit_price || 0,
+        pendingDeliveries: 0,
+        nonSerializedStock: 0
+      };
       setMaterial(materialData);
     }
 
-    const serialsData = await db.serials.where('materialId').equals(id).toArray();
+    // Load serials from Supabase
+    const { data: supabaseSerials, error: serialsError } = await supabase
+      .from('serials')
+      .select('*')
+      .eq('material_id', id);
+
+    if (serialsError) {
+      console.error('Error loading serials:', serialsError);
+      toast.error('Erreur lors du chargement des numéros de série');
+      return;
+    }
+
+    // Map to local Serial format
+    const serialsData: Serial[] = (supabaseSerials || []).map(serial => {
+      const deliveryDate = new Date(serial.purchase_date || serial.created_at);
+      const warrantyEnd = serial.warranty_end ? new Date(serial.warranty_end) : addDays(deliveryDate, 365);
+      
+      return {
+        id: serial.id,
+        serialNumber: serial.serial_number,
+        materialId: serial.material_id,
+        materialName: supabaseMaterial?.name || '',
+        status: serial.status as SerialStatus,
+        deliveryDate,
+        warrantyStart: deliveryDate,
+        warrantyEnd,
+        supplier: supabaseMaterial?.manufacturer || 'Inconnu',
+        site: serial.location || 'Siège',
+        assignedTo: '',
+        purchasePrice: 0,
+        warrantyStatus: warrantyEnd < new Date() ? 'expired' : warrantyEnd < addDays(new Date(), 90) ? 'warning' : 'ok'
+      };
+    });
+
     setSerials(serialsData);
   };
 
