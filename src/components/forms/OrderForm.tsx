@@ -292,20 +292,39 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Fournisseur</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionner un fournisseur" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {suppliers.map(supplier => (
-                    <SelectItem key={supplier.id} value={supplier.name}>
-                      {supplier.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Sélectionner un fournisseur" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {suppliers.map(supplier => (
+                      <SelectItem key={supplier.id} value={supplier.name}>
+                        {supplier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setNewSupplierForm({
+                      name: '',
+                      contact: '',
+                      email: '',
+                      phone: '',
+                      address: ''
+                    });
+                    setShowNewSupplierDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )}
