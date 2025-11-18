@@ -13,13 +13,15 @@ import {
   Shield,
   TrendingUp,
   Users,
-  Wrench
+  Wrench,
+  ArrowRightLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mockAssignments, mockDashboardAlerts, mockMaterials, mockOrders, mockSerials } from "@/lib/mockData";
 import { DashboardWidget, DashboardWidgetConfig } from "@/components/dashboard/DashboardWidget";
 import { WidgetManager } from "@/components/dashboard/WidgetManager";
 import { Badge } from "@/components/ui/badge";
+import { MaterialMovementDialog } from "@/components/dashboard/MaterialMovementDialog";
 
 const availableWidgets: DashboardWidgetConfig[] = [
   {
@@ -227,6 +229,7 @@ const availableWidgets: DashboardWidgetConfig[] = [
 const Dashboard = () => {
   const navigate = useNavigate();
   const [managerOpen, setManagerOpen] = useState(false);
+  const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [widgetOrder, setWidgetOrder] = useState(() => availableWidgets.map(widget => widget.id));
   const [collapsedWidgets, setCollapsedWidgets] = useState<string[]>([]);
   const [filters, setFilters] = useState({ period: "this-quarter", category: "all", supplier: "all", site: "all" });
@@ -289,10 +292,16 @@ const Dashboard = () => {
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setManagerOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Configurer les widgets
-          </Button>
+          <div className="flex gap-2">
+            <Button className="gap-2" onClick={() => setMovementDialogOpen(true)}>
+              <ArrowRightLeft className="h-4 w-4" />
+              Entrée / Sortie
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => setManagerOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Configurer les widgets
+            </Button>
+          </div>
           <DashboardWidget.Filters
             value={filters}
             onChange={setFilters}
@@ -321,6 +330,11 @@ const Dashboard = () => {
         activeWidgetIds={widgetOrder}
         onToggleWidget={handleToggleWidget}
         onMoveWidget={handleMoveWidget}
+      />
+      
+      <MaterialMovementDialog
+        open={movementDialogOpen}
+        onClose={() => setMovementDialogOpen(false)}
       />
     </div>
   );
