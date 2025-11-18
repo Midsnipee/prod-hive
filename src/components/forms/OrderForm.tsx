@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const orderSchema = z.object({
@@ -475,7 +476,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <FormLabel>Nom du fournisseur *</FormLabel>
+            <Label>Nom du fournisseur *</Label>
             <Input
               value={newSupplierForm.name}
               onChange={(e) => setNewSupplierForm(prev => ({ ...prev, name: e.target.value }))}
@@ -483,7 +484,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
             />
           </div>
           <div>
-            <FormLabel>Contact</FormLabel>
+            <Label>Contact</Label>
             <Input
               value={newSupplierForm.contact}
               onChange={(e) => setNewSupplierForm(prev => ({ ...prev, contact: e.target.value }))}
@@ -491,7 +492,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
             />
           </div>
           <div>
-            <FormLabel>Email</FormLabel>
+            <Label>Email</Label>
             <Input
               type="email"
               value={newSupplierForm.email}
@@ -500,7 +501,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
             />
           </div>
           <div>
-            <FormLabel>Téléphone</FormLabel>
+            <Label>Téléphone</Label>
             <Input
               value={newSupplierForm.phone}
               onChange={(e) => setNewSupplierForm(prev => ({ ...prev, phone: e.target.value }))}
@@ -508,7 +509,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
             />
           </div>
           <div>
-            <FormLabel>Adresse</FormLabel>
+            <Label>Adresse</Label>
             <Textarea
               value={newSupplierForm.address}
               onChange={(e) => setNewSupplierForm(prev => ({ ...prev, address: e.target.value }))}
