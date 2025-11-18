@@ -240,7 +240,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
 
   const onSubmit = async (values: OrderFormValues) => {
     try {
-      // Map orderLines to the correct format
+      // Map orderLines to the correct format for local DB
       const mappedLines: any[] = orderLines.map(line => ({
         id: crypto.randomUUID(),
         itemId: crypto.randomUUID(),
@@ -250,8 +250,9 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         taxRate: 20
       }));
 
+      const orderId = order?.id || crypto.randomUUID();
       const orderData: Order = {
-        id: order?.id || crypto.randomUUID(),
+        id: orderId,
         reference: values.reference,
         supplier: values.supplier,
         amount: values.amount,
@@ -268,6 +269,79 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         files: order?.files || []
       };
 
+      // Save to Supabase first
+      if (order?.id) {
+        // Update order in Supabase
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({
+            reference: orderData.reference,
+            supplier: orderData.supplier,
+            amount: orderData.amount,
+            status: orderData.status,
+            description: orderData.description,
+          })
+          .eq('id', order.id);
+
+        if (orderError) throw orderError;
+
+        // Delete existing order lines
+        await supabase
+          .from('order_lines')
+          .delete()
+          .eq('order_id', order.id);
+
+        // Insert new order lines
+        if (orderLines.length > 0) {
+          const { error: linesError } = await supabase
+            .from('order_lines')
+            .insert(
+              orderLines.map(line => ({
+                order_id: order.id,
+                material_name: line.materialName,
+                quantity: line.quantity,
+                unit_price: line.unitPrice,
+                tax_rate: 20,
+              }))
+            );
+
+          if (linesError) throw linesError;
+        }
+      } else {
+        // Insert new order in Supabase
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            id: orderId,
+            reference: orderData.reference,
+            supplier: orderData.supplier,
+            amount: orderData.amount,
+            status: orderData.status,
+            description: orderData.description,
+            currency: 'EUR',
+          });
+
+        if (orderError) throw orderError;
+
+        // Insert order lines
+        if (orderLines.length > 0) {
+          const { error: linesError } = await supabase
+            .from('order_lines')
+            .insert(
+              orderLines.map(line => ({
+                order_id: orderId,
+                material_name: line.materialName,
+                quantity: line.quantity,
+                unit_price: line.unitPrice,
+                tax_rate: 20,
+              }))
+            );
+
+          if (linesError) throw linesError;
+        }
+      }
+
+      // Also save to local DB for compatibility
       if (order?.id) {
         await db.orders.update(order.id, {
           reference: orderData.reference,
@@ -285,6 +359,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
       
       onSuccess();
     } catch (error) {
+      console.error('Error saving order:', error);
       toast.error('Erreur lors de la sauvegarde');
     }
   };
