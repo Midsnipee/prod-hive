@@ -15,6 +15,7 @@ import { Upload, Loader2, X, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import * as pdfjsLib from 'pdfjs-dist';
 
 const orderSchema = z.object({
@@ -45,6 +46,15 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
+  const [showNewSupplierDialog, setShowNewSupplierDialog] = useState(false);
+  const [extractedSupplier, setExtractedSupplier] = useState<string>('');
+  const [newSupplierForm, setNewSupplierForm] = useState({
+    name: '',
+    contact: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
 
   useEffect(() => {
     db.suppliers.toArray().then(setSuppliers);
@@ -100,7 +110,31 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
       if (data && data.lines && data.totalAmount) {
         setOrderLines(data.lines);
         form.setValue('amount', data.totalAmount);
-        toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
+        
+        // Set reference if extracted
+        if (data.reference) {
+          form.setValue('reference', data.reference);
+        }
+        
+        // Handle supplier
+        if (data.supplier) {
+          const existingSupplier = suppliers.find(s => 
+            s.name.toLowerCase() === data.supplier.toLowerCase()
+          );
+          
+          if (existingSupplier) {
+            form.setValue('supplier', existingSupplier.name);
+            toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
+          } else {
+            // Supplier doesn't exist, prompt to create
+            setExtractedSupplier(data.supplier);
+            setNewSupplierForm(prev => ({ ...prev, name: data.supplier }));
+            setShowNewSupplierDialog(true);
+            toast.info(`Fournisseur "${data.supplier}" non trouvé. Créez-le pour continuer.`);
+          }
+        } else {
+          toast.success(`${data.lines.length} ligne(s) extraite(s) du PDF`);
+        }
       } else {
         toast.error('Impossible d\'extraire les données du PDF');
       }
@@ -131,6 +165,38 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   const removeOrderLine = (index: number) => {
     setOrderLines(orderLines.filter((_, i) => i !== index));
     setTimeout(calculateTotal, 0);
+  };
+
+  const handleCreateSupplier = async () => {
+    try {
+      await db.suppliers.add({
+        id: crypto.randomUUID(),
+        name: newSupplierForm.name,
+        contact: newSupplierForm.contact || null,
+        email: newSupplierForm.email || null,
+        phone: newSupplierForm.phone || null,
+        address: newSupplierForm.address || null,
+        createdAt: new Date()
+      });
+      
+      const updatedSuppliers = await db.suppliers.toArray();
+      setSuppliers(updatedSuppliers);
+      form.setValue('supplier', newSupplierForm.name);
+      setShowNewSupplierDialog(false);
+      toast.success(`Fournisseur "${newSupplierForm.name}" créé avec succès`);
+      
+      // Reset form
+      setNewSupplierForm({
+        name: '',
+        contact: '',
+        email: '',
+        phone: '',
+        address: ''
+      });
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      toast.error('Erreur lors de la création du fournisseur');
+    }
   };
 
   const onSubmit = async (values: OrderFormValues) => {
@@ -174,21 +240,50 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="reference"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Référence de commande</FormLabel>
-              <FormControl>
-                <Input placeholder="CMD-2024-001" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <FormLabel>Document PDF de devis</FormLabel>
+            <div className="flex items-center gap-2">
+              <Input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handlePdfUpload(file);
+                }}
+                className="flex-1"
+                disabled={isExtracting}
+              />
+              {isExtracting && (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+              {pdfFile && !isExtracting && (
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Upload className="h-4 w-4" />
+                  {pdfFile.name}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Téléchargez un devis PDF pour extraire automatiquement les informations
+            </p>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="reference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Référence de commande</FormLabel>
+                <FormControl>
+                  <Input placeholder="CMD-2024-001" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
         <FormField
           control={form.control}
@@ -286,34 +381,6 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
           )}
         />
 
-        <div className="space-y-2">
-          <FormLabel>Document PDF de devis</FormLabel>
-          <div className="flex items-center gap-2">
-            <Input
-              type="file"
-              accept="application/pdf"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handlePdfUpload(file);
-              }}
-              className="flex-1"
-              disabled={isExtracting}
-            />
-            {isExtracting && (
-              <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            )}
-            {pdfFile && !isExtracting && (
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                <Upload className="h-4 w-4" />
-                {pdfFile.name}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Téléchargez un devis PDF pour extraire automatiquement les lignes de commande
-          </p>
-        </div>
-
         {orderLines.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -397,5 +464,74 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         </div>
       </form>
     </Form>
+
+    <Dialog open={showNewSupplierDialog} onOpenChange={setShowNewSupplierDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Créer un nouveau fournisseur</DialogTitle>
+          <DialogDescription>
+            Le fournisseur "{extractedSupplier}" n'existe pas dans votre base. Créez-le maintenant.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <FormLabel>Nom du fournisseur *</FormLabel>
+            <Input
+              value={newSupplierForm.name}
+              onChange={(e) => setNewSupplierForm(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Nom du fournisseur"
+            />
+          </div>
+          <div>
+            <FormLabel>Contact</FormLabel>
+            <Input
+              value={newSupplierForm.contact}
+              onChange={(e) => setNewSupplierForm(prev => ({ ...prev, contact: e.target.value }))}
+              placeholder="Nom du contact"
+            />
+          </div>
+          <div>
+            <FormLabel>Email</FormLabel>
+            <Input
+              type="email"
+              value={newSupplierForm.email}
+              onChange={(e) => setNewSupplierForm(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="email@fournisseur.fr"
+            />
+          </div>
+          <div>
+            <FormLabel>Téléphone</FormLabel>
+            <Input
+              value={newSupplierForm.phone}
+              onChange={(e) => setNewSupplierForm(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="01 23 45 67 89"
+            />
+          </div>
+          <div>
+            <FormLabel>Adresse</FormLabel>
+            <Textarea
+              value={newSupplierForm.address}
+              onChange={(e) => setNewSupplierForm(prev => ({ ...prev, address: e.target.value }))}
+              placeholder="Adresse complète"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setShowNewSupplierDialog(false)}
+          >
+            Annuler
+          </Button>
+          <Button
+            onClick={handleCreateSupplier}
+            disabled={!newSupplierForm.name}
+          >
+            Créer le fournisseur
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

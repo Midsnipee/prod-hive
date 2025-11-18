@@ -52,6 +52,8 @@ serve(async (req) => {
                 role: 'system',
                 content: `Tu es un assistant spécialisé dans l'extraction de données de devis. 
 Analyse le texte du devis et extrait les informations suivantes:
+- Le nom du fournisseur
+- La référence du devis/commande
 - Les lignes de commande avec: nom du matériel, quantité, prix unitaire
 - Le montant total TTC
 
@@ -59,37 +61,39 @@ Réponds en utilisant la fonction extract_quote_data fournie.`
               },
               {
                 role: 'user',
-                content: `Analyse ce devis et extrait les lignes de commande et le montant total:\n\n${pdfText}`
+                content: `Analyse ce devis et extrait toutes les informations (fournisseur, référence, lignes de commande, montant total):\n\n${pdfText}`
               }
             ],
             tools: [
               {
                 type: 'function',
-                function: {
-                  name: 'extract_quote_data',
-                  description: 'Extrait les données structurées d\'un devis',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      lines: {
-                        type: 'array',
-                        items: {
-                          type: 'object',
-                          properties: {
-                            materialName: { type: 'string' },
-                            quantity: { type: 'number' },
-                            unitPrice: { type: 'number' }
-                          },
-                          required: ['materialName', 'quantity', 'unitPrice'],
-                          additionalProperties: false
-                        }
+                  function: {
+                    name: 'extract_quote_data',
+                    description: 'Extrait les données structurées d\'un devis',
+                    parameters: {
+                      type: 'object',
+                      properties: {
+                        supplier: { type: 'string', description: 'Nom du fournisseur' },
+                        reference: { type: 'string', description: 'Référence du devis/commande' },
+                        lines: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              materialName: { type: 'string' },
+                              quantity: { type: 'number' },
+                              unitPrice: { type: 'number' }
+                            },
+                            required: ['materialName', 'quantity', 'unitPrice'],
+                            additionalProperties: false
+                          }
+                        },
+                        totalAmount: { type: 'number' }
                       },
-                      totalAmount: { type: 'number' }
-                    },
-                    required: ['lines', 'totalAmount'],
-                    additionalProperties: false
+                      required: ['lines', 'totalAmount'],
+                      additionalProperties: false
+                    }
                   }
-                }
               }
             ],
             tool_choice: { type: 'function', function: { name: 'extract_quote_data' } }
