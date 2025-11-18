@@ -201,6 +201,7 @@ const MaterialDetail = () => {
             <option value="Attribué">Attribué</option>
             <option value="En réparation">En réparation</option>
             <option value="Retiré">Retiré</option>
+            <option value="Télétravail">Télétravail</option>
           </select>
           <Input
             placeholder="Filtrer par attributaire..."
@@ -272,6 +273,7 @@ const MaterialDetail = () => {
                         <SelectItem value="Attribué">Attribué</SelectItem>
                         <SelectItem value="En réparation">En réparation</SelectItem>
                         <SelectItem value="Retiré">Retiré</SelectItem>
+                        <SelectItem value="Télétravail">Télétravail</SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
