@@ -111,16 +111,18 @@ const Orders = () => {
         const line = pendingDeliveryOrder.lines.find(l => l.id === lineId);
         if (!line || serials.length === 0) continue;
 
-        // Check if material exists in Supabase, create if not
-        const { data: existingMaterial } = await supabase
+        // Check if material exists by name first to avoid duplicates
+        const { data: existingMaterialByName } = await supabase
           .from('materials')
           .select('id')
-          .eq('id', line.itemId)
+          .eq('name', line.description)
           .maybeSingle();
 
-        if (!existingMaterial) {
-          // Create material from order line
-          const { error: materialError } = await supabase
+        let materialId = existingMaterialByName?.id || line.itemId;
+
+        if (!existingMaterialByName) {
+          // Create material from order line only if it doesn't exist
+          const { data: newMaterial, error: materialError } = await supabase
             .from('materials')
             .insert({
               id: line.itemId,
@@ -128,13 +130,16 @@ const Orders = () => {
               category: 'Autre',
               stock: 0,
               unit_price: line.unitPrice,
-            });
+            })
+            .select('id')
+            .single();
 
           if (materialError) {
             console.error('Error creating material:', materialError);
             toast.error(`Erreur lors de la création du matériel: ${line.description}`);
             continue;
           }
+          materialId = newMaterial.id;
         }
 
         // Get the order_line_id from Supabase
@@ -145,7 +150,7 @@ const Orders = () => {
           .eq('material_name', line.description)
           .maybeSingle();
 
-        // Create serials in Supabase
+        // Create serials in Supabase using the correct material_id
         for (const serialNumber of serials) {
           if (serialNumber.trim() === "") continue;
 
@@ -153,7 +158,7 @@ const Orders = () => {
             .from('serials')
             .insert({
               serial_number: serialNumber,
-              material_id: line.itemId,
+              material_id: materialId,
               order_line_id: orderLineData?.id || null,
               status: 'En stock',
               purchase_date: new Date().toISOString(),
