@@ -451,21 +451,23 @@ const Orders = () => {
       />
       
       <Dialog open={showNewOrderDialog} onOpenChange={setShowNewOrderDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Nouveau devis</DialogTitle>
             <DialogDescription>
               Créez un nouveau devis ou une nouvelle commande.
             </DialogDescription>
           </DialogHeader>
-          <OrderForm 
-            onSuccess={() => {
-              setShowNewOrderDialog(false);
-              loadOrders();
-              toast.success("Devis créé");
-            }} 
-            onCancel={() => setShowNewOrderDialog(false)} 
-          />
+          <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+            <OrderForm 
+              onSuccess={() => {
+                setShowNewOrderDialog(false);
+                loadOrders();
+                toast.success("Devis créé");
+              }} 
+              onCancel={() => setShowNewOrderDialog(false)} 
+            />
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 

@@ -328,7 +328,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
                 Ajouter une ligne
               </Button>
             </div>
-            <ScrollArea className="h-[400px] border rounded-md">
+            <ScrollArea className="h-[250px] border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
