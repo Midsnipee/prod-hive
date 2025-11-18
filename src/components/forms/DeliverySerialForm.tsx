@@ -4,18 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OrderLine } from "@/lib/mockData";
-import { Plus, X } from "lucide-react";
+import { Plus, X, CalendarIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface DeliverySerialFormProps {
   open: boolean;
   orderLines: OrderLine[];
-  onConfirm: (serialNumbers: Record<string, string[]>) => void;
+  onConfirm: (serialNumbers: Record<string, string[]>, renewalDates: Record<string, Date | undefined>) => void;
   onCancel: () => void;
 }
 
 export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: DeliverySerialFormProps) => {
   const [serialInputs, setSerialInputs] = useState<Record<string, string[]>>({});
+  const [renewalDates, setRenewalDates] = useState<Record<string, Date | undefined>>({});
 
   // Initialize serial inputs when orderLines change
   useEffect(() => {
@@ -55,7 +61,7 @@ export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: De
     Object.entries(serialInputs).forEach(([lineId, serials]) => {
       cleanedSerials[lineId] = serials.filter(s => s.trim() !== "");
     });
-    onConfirm(cleanedSerials);
+    onConfirm(cleanedSerials, renewalDates);
   };
 
   const isValid = Object.values(serialInputs).some(serials => 
@@ -77,7 +83,7 @@ export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: De
             {orderLines.map(line => (
               <div key={line.id} className="space-y-3 rounded-lg border border-border p-4">
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-medium">{line.description}</h4>
                     <p className="text-sm text-muted-foreground">
                       Quantité commandée: {line.quantity}
@@ -91,6 +97,37 @@ export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: De
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Date de renouvellement prévu (optionnel)</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !renewalDates[line.id] && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {renewalDates[line.id] ? (
+                          format(renewalDates[line.id]!, "PPP", { locale: fr })
+                        ) : (
+                          <span>Sélectionner une date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={renewalDates[line.id]}
+                        onSelect={(date) => setRenewalDates(prev => ({ ...prev, [line.id]: date }))}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 <div className="space-y-2">

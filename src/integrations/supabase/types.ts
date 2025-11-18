@@ -276,6 +276,7 @@ export type Database = {
           notes: string | null
           order_line_id: string | null
           purchase_date: string | null
+          renewal_date: string | null
           serial_number: string
           status: Database["public"]["Enums"]["serial_status"]
           updated_at: string
@@ -289,6 +290,7 @@ export type Database = {
           notes?: string | null
           order_line_id?: string | null
           purchase_date?: string | null
+          renewal_date?: string | null
           serial_number: string
           status?: Database["public"]["Enums"]["serial_status"]
           updated_at?: string
@@ -302,6 +304,7 @@ export type Database = {
           notes?: string | null
           order_line_id?: string | null
           purchase_date?: string | null
+          renewal_date?: string | null
           serial_number?: string
           status?: Database["public"]["Enums"]["serial_status"]
           updated_at?: string
