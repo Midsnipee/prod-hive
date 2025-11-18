@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, UserCheck, Trash2, UserX, Plus } from "lucide-react
 import { Card, CardContent } from "@/components/ui/card";
 import { DiscardForm } from "./DiscardForm";
 import { UnassignForm } from "./UnassignForm";
+import { AssignForm } from "./AssignForm";
 
 type MovementType = "entry" | "exit" | null;
 type ActionType = "assign" | "discard" | "unassign" | "add" | null;
@@ -170,7 +171,11 @@ export function MaterialMovementDialog({ open, onClose }: MaterialMovementDialog
             <UnassignForm onSuccess={handleClose} />
           )}
 
-          {actionType && actionType !== "discard" && actionType !== "unassign" && (
+          {actionType === "assign" && (
+            <AssignForm onSuccess={handleClose} />
+          )}
+
+          {actionType === "add" && (
             <div className="p-4 border rounded-lg bg-muted/50">
               <p className="text-sm text-center text-muted-foreground">
                 Fonctionnalité en cours d'implémentation
