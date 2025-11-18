@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, UserCheck, Trash2, UserX, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, UserCheck, Trash2, UserX, Plus, FileSpreadsheet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { DiscardForm } from "./DiscardForm";
 import { UnassignForm } from "./UnassignForm";
 import { AssignForm } from "./AssignForm";
 import { AddManualSerialForm } from "./AddManualSerialForm";
+import { ImportCSVForm } from "./ImportCSVForm";
 
 type MovementType = "entry" | "exit" | null;
-type ActionType = "assign" | "discard" | "unassign" | "add" | null;
+type ActionType = "assign" | "discard" | "unassign" | "add" | "import" | null;
 
 interface MaterialMovementDialogProps {
   open: boolean;
@@ -46,6 +47,7 @@ export function MaterialMovementDialog({ open, onClose }: MaterialMovementDialog
             {actionType === "discard" && "Mise au rebut"}
             {actionType === "unassign" && "Désattribution"}
             {actionType === "add" && "Ajout manuel"}
+            {actionType === "import" && "Import CSV"}
           </DialogTitle>
         </DialogHeader>
 
@@ -89,7 +91,7 @@ export function MaterialMovementDialog({ open, onClose }: MaterialMovementDialog
           )}
 
           {movementType === "entry" && !actionType && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Card 
                 className="cursor-pointer hover:bg-accent transition-colors"
                 onClick={() => setActionType("unassign")}
@@ -119,6 +121,23 @@ export function MaterialMovementDialog({ open, onClose }: MaterialMovementDialog
                     <h3 className="font-semibold">Ajout manuel</h3>
                     <p className="text-sm text-muted-foreground">
                       Nouveau matériel
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={() => setActionType("import")}
+              >
+                <CardContent className="flex flex-col items-center justify-center p-6 space-y-3">
+                  <div className="rounded-full bg-primary/10 p-3">
+                    <FileSpreadsheet className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold">Import CSV</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Import en masse
                     </p>
                   </div>
                 </CardContent>
@@ -178,6 +197,10 @@ export function MaterialMovementDialog({ open, onClose }: MaterialMovementDialog
 
           {actionType === "add" && (
             <AddManualSerialForm onSuccess={handleClose} />
+          )}
+
+          {actionType === "import" && (
+            <ImportCSVForm onSuccess={handleClose} />
           )}
 
           <div className="flex justify-between pt-4">
