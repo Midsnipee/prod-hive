@@ -747,7 +747,13 @@ const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryD
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
                   {uploadedFiles.map(file => (
-                    <Button key={file.id} variant="outline" className="justify-start gap-2" size="sm">
+                    <Button 
+                      key={file.id} 
+                      variant="outline" 
+                      className="justify-start gap-2" 
+                      size="sm"
+                      onClick={() => window.open(file.url, '_blank')}
+                    >
                       <FileText className="h-4 w-4" />
                       {file.name}
                     </Button>
