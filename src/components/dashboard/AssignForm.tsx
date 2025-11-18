@@ -36,6 +36,9 @@ const assignFormSchema = z.object({
   serialId: z.string().min(1, "Veuillez sélectionner un numéro de série"),
   assignedTo: z.string().trim().min(1, "Le nom est requis").max(100, "Maximum 100 caractères"),
   department: z.string().min(1, "Veuillez sélectionner un département"),
+  status: z.enum(["Attribué", "Télétravail"], {
+    required_error: "Veuillez sélectionner un statut",
+  }),
   startDate: z.date({
     required_error: "La date de début est requise",
   }),
@@ -59,6 +62,7 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
       serialId: "",
       assignedTo: "",
       department: "",
+      status: "Attribué",
       startDate: new Date(),
       notes: "",
     },
@@ -135,10 +139,10 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
       return;
     }
 
-    // Update serial status to "Attribué"
+    // Update serial status
     const { error: serialError } = await supabase
       .from("serials")
-      .update({ status: "Attribué" })
+      .update({ status: values.status })
       .eq("id", values.serialId);
 
     if (serialError) {
@@ -225,6 +229,28 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
                   <SelectItem value="Commercial">Commercial</SelectItem>
                   <SelectItem value="Production">Production</SelectItem>
                   <SelectItem value="Logistique">Logistique</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Statut</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sélectionner un statut" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Attribué">Attribué</SelectItem>
+                  <SelectItem value="Télétravail">Télétravail</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
