@@ -437,7 +437,12 @@ export type Database = {
         | "Circuit interne"
         | "Commande fournisseur faite"
         | "Livré"
-      serial_status: "En stock" | "Attribué" | "En réparation" | "Retiré"
+      serial_status:
+        | "En stock"
+        | "Attribué"
+        | "En réparation"
+        | "Retiré"
+        | "Télétravail"
       user_role: "admin" | "magasinier" | "acheteur" | "lecteur"
     }
     CompositeTypes: {
@@ -583,7 +588,13 @@ export const Constants = {
         "Commande fournisseur faite",
         "Livré",
       ],
-      serial_status: ["En stock", "Attribué", "En réparation", "Retiré"],
+      serial_status: [
+        "En stock",
+        "Attribué",
+        "En réparation",
+        "Retiré",
+        "Télétravail",
+      ],
       user_role: ["admin", "magasinier", "acheteur", "lecteur"],
     },
   },
