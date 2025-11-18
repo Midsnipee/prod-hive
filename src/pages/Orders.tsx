@@ -597,13 +597,46 @@ interface OrderDetailSheetProps {
 const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryDialog }: OrderDetailSheetProps) => {
   const [status, setStatus] = useState<OrderStatus | undefined>(order?.status);
   const [description, setDescription] = useState<string>(order?.description || "");
-  const [uploadedFiles, setUploadedFiles] = useState<OrderFile[]>(order?.files || []);
+  const [uploadedFiles, setUploadedFiles] = useState<OrderFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     setStatus(order?.status);
     setDescription(order?.description || "");
-    setUploadedFiles(order?.files || []);
+    loadOrderFiles();
   }, [order]);
+
+  const loadOrderFiles = async () => {
+    if (!order) return;
+
+    const { data: files, error } = await supabase
+      .from('order_files')
+      .select('*')
+      .eq('order_id', order.id);
+
+    if (error) {
+      console.error('Error loading order files:', error);
+      return;
+    }
+
+    if (files) {
+      const filesWithUrls = await Promise.all(
+        files.map(async (file) => {
+          const { data: urlData } = await supabase.storage
+            .from('order-files')
+            .createSignedUrl(file.file_path, 3600); // URL valid for 1 hour
+
+          return {
+            id: file.id,
+            name: file.file_name,
+            type: file.file_type as "devis" | "facture",
+            url: urlData?.signedUrl || ''
+          };
+        })
+      );
+      setUploadedFiles(filesWithUrls);
+    }
+  };
 
   const updateStatus = (value: OrderStatus) => {
     if (order) {
@@ -612,20 +645,52 @@ const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryD
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (!files) return;
+    if (!files || !order) return;
 
-    Array.from(files).forEach((file) => {
-      const newFile: OrderFile = {
-        id: `file-${Date.now()}-${Math.random()}`,
-        name: file.name,
-        type: "devis" as const,
-        url: URL.createObjectURL(file)
-      };
-      setUploadedFiles(prev => [...prev, newFile]);
-    });
-    toast.success("Fichier(s) ajouté(s)");
+    setIsUploading(true);
+
+    try {
+      for (const file of Array.from(files)) {
+        // Upload file to Supabase Storage
+        const filePath = `${order.id}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('order-files')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error('Error uploading file:', uploadError);
+          toast.error(`Erreur lors de l'upload de ${file.name}`);
+          continue;
+        }
+
+        // Save file metadata to database
+        const { error: dbError } = await supabase
+          .from('order_files')
+          .insert({
+            order_id: order.id,
+            file_name: file.name,
+            file_type: file.type,
+            file_path: filePath
+          });
+
+        if (dbError) {
+          console.error('Error saving file metadata:', dbError);
+          toast.error(`Erreur lors de la sauvegarde de ${file.name}`);
+        }
+      }
+
+      await loadOrderFiles();
+      toast.success("Fichier(s) ajouté(s) avec succès");
+    } catch (error) {
+      console.error('Error in file upload:', error);
+      toast.error("Erreur lors de l'upload des fichiers");
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      event.target.value = '';
+    }
   };
 
   return (
@@ -732,9 +797,15 @@ const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryD
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold uppercase text-muted-foreground">Pièces jointes</h3>
-                  <Button variant="outline" size="sm" className="gap-2" onClick={() => document.getElementById('file-upload')?.click()}>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2" 
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                    disabled={isUploading}
+                  >
                     <Upload className="h-4 w-4" />
-                    Ajouter un document
+                    {isUploading ? "Upload en cours..." : "Ajouter un document"}
                   </Button>
                   <input
                     id="file-upload"
@@ -745,20 +816,24 @@ const OrderDetailSheet = ({ order, onOpenChange, onStatusChange, onOpenDeliveryD
                     onChange={handleFileUpload}
                   />
                 </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {uploadedFiles.map(file => (
-                    <Button 
-                      key={file.id} 
-                      variant="outline" 
-                      className="justify-start gap-2" 
-                      size="sm"
-                      onClick={() => window.open(file.url, '_blank')}
-                    >
-                      <FileText className="h-4 w-4" />
-                      {file.name}
-                    </Button>
-                  ))}
-                </div>
+                {uploadedFiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun document pour le moment.</p>
+                ) : (
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {uploadedFiles.map(file => (
+                      <Button 
+                        key={file.id} 
+                        variant="outline" 
+                        className="justify-start gap-2" 
+                        size="sm"
+                        onClick={() => window.open(file.url, '_blank')}
+                      >
+                        <FileText className="h-4 w-4" />
+                        {file.name}
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </section>
 
               <section className="space-y-3">
