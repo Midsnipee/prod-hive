@@ -13,7 +13,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Matériels", href: "/materials", icon: Package },
   { name: "Commandes", href: "/orders", icon: ShoppingCart },
-  { name: "Attributions", href: "/assignments", icon: UserCheck },
+  { name: "Utilisateurs", href: "/assignments", icon: UserCheck },
   { name: "Paramètres", href: "/settings", icon: Settings },
 ];
 
