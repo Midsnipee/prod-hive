@@ -9,7 +9,6 @@ import Dashboard from "./pages/Dashboard";
 import Materials from "./pages/Materials";
 import MaterialDetail from "./pages/MaterialDetail";
 import Orders from "./pages/Orders";
-import Serials from "./pages/Serials";
 import Assignments from "./pages/Assignments";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
@@ -53,7 +52,6 @@ const App = () => (
               <Route path="materials" element={<Materials />} />
               <Route path="materials/:id" element={<MaterialDetail />} />
               <Route path="orders" element={<Orders />} />
-              <Route path="serials" element={<Serials />} />
               <Route path="assignments" element={<Assignments />} />
               <Route path="settings" element={<Settings />} />
             </Route>
