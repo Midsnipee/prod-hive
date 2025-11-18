@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,18 @@ interface DeliverySerialFormProps {
 }
 
 export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: DeliverySerialFormProps) => {
-  const [serialInputs, setSerialInputs] = useState<Record<string, string[]>>(() => {
-    const initial: Record<string, string[]> = {};
-    orderLines.forEach(line => {
-      initial[line.id] = Array(line.quantity).fill("");
-    });
-    return initial;
-  });
+  const [serialInputs, setSerialInputs] = useState<Record<string, string[]>>({});
+
+  // Initialize serial inputs when orderLines change
+  useEffect(() => {
+    if (orderLines.length > 0) {
+      const initial: Record<string, string[]> = {};
+      orderLines.forEach(line => {
+        initial[line.id] = Array(line.quantity).fill("");
+      });
+      setSerialInputs(initial);
+    }
+  }, [orderLines]);
 
   const updateSerial = (lineId: string, index: number, value: string) => {
     setSerialInputs(prev => ({
