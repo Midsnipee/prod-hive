@@ -240,6 +240,16 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
 
   const onSubmit = async (values: OrderFormValues) => {
     try {
+      // Map orderLines to the correct format
+      const mappedLines: any[] = orderLines.map(line => ({
+        id: crypto.randomUUID(),
+        itemId: crypto.randomUUID(),
+        description: line.materialName,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        taxRate: 20
+      }));
+
       const orderData: Order = {
         id: order?.id || crypto.randomUUID(),
         reference: values.reference,
@@ -252,7 +262,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         requestedBy: order?.requestedBy || '',
         description: values.description || '',
         tags: order?.tags || [],
-        lines: order?.lines || [],
+        lines: mappedLines,
         deliveries: order?.deliveries || [],
         history: order?.history || [],
         files: order?.files || []
@@ -264,7 +274,8 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
           supplier: orderData.supplier,
           amount: orderData.amount,
           status: orderData.status,
-          description: orderData.description
+          description: orderData.description,
+          lines: mappedLines
         });
         toast.success('Commande mise à jour');
       } else {
