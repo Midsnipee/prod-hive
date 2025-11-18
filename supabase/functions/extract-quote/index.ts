@@ -31,84 +31,118 @@ serve(async (req) => {
 
     console.log('Calling Lovable AI to extract quote data...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `Tu es un assistant spécialisé dans l'extraction de données de devis. 
+    // Retry logic for temporary service issues
+    let lastError = null;
+    let response = null;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/3 to call Lovable AI...`);
+        
+        response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              {
+                role: 'system',
+                content: `Tu es un assistant spécialisé dans l'extraction de données de devis. 
 Analyse le texte du devis et extrait les informations suivantes:
 - Les lignes de commande avec: nom du matériel, quantité, prix unitaire
 - Le montant total TTC
 
 Réponds en utilisant la fonction extract_quote_data fournie.`
-          },
-          {
-            role: 'user',
-            content: `Analyse ce devis et extrait les lignes de commande et le montant total:\n\n${pdfText}`
-          }
-        ],
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'extract_quote_data',
-              description: 'Extrait les données structurées d\'un devis',
-              parameters: {
-                type: 'object',
-                properties: {
-                  lines: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        materialName: { type: 'string' },
-                        quantity: { type: 'number' },
-                        unitPrice: { type: 'number' }
-                      },
-                      required: ['materialName', 'quantity', 'unitPrice'],
-                      additionalProperties: false
-                    }
-                  },
-                  totalAmount: { type: 'number' }
-                },
-                required: ['lines', 'totalAmount'],
-                additionalProperties: false
+              },
+              {
+                role: 'user',
+                content: `Analyse ce devis et extrait les lignes de commande et le montant total:\n\n${pdfText}`
               }
-            }
-          }
-        ],
-        tool_choice: { type: 'function', function: { name: 'extract_quote_data' } }
-      }),
-    });
+            ],
+            tools: [
+              {
+                type: 'function',
+                function: {
+                  name: 'extract_quote_data',
+                  description: 'Extrait les données structurées d\'un devis',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      lines: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            materialName: { type: 'string' },
+                            quantity: { type: 'number' },
+                            unitPrice: { type: 'number' }
+                          },
+                          required: ['materialName', 'quantity', 'unitPrice'],
+                          additionalProperties: false
+                        }
+                      },
+                      totalAmount: { type: 'number' }
+                    },
+                    required: ['lines', 'totalAmount'],
+                    additionalProperties: false
+                  }
+                }
+              }
+            ],
+            tool_choice: { type: 'function', function: { name: 'extract_quote_data' } }
+          }),
+        });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requêtes dépassée, veuillez réessayer plus tard.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        if (response.ok) {
+          console.log('Successfully received response from Lovable AI');
+          break; // Success, exit retry loop
+        }
+
+        // Handle specific error codes
+        if (response.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Limite de requêtes dépassée, veuillez réessayer plus tard.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (response.status === 402) {
+          return new Response(
+            JSON.stringify({ error: 'Crédits insuffisants, veuillez ajouter des crédits à votre espace de travail.' }),
+            { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        lastError = await response.text();
+        console.error(`Attempt ${attempt} failed with status ${response.status}:`, lastError);
+        
+        // Wait before retrying (exponential backoff)
+        if (attempt < 3) {
+          const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+      } catch (error) {
+        lastError = error;
+        console.error(`Attempt ${attempt} failed with error:`, error);
+        
+        if (attempt < 3) {
+          const waitTime = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
       }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Crédits insuffisants, veuillez ajouter des crédits à votre espace de travail.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
+    }
+
+    if (!response || !response.ok) {
+      console.error('All retry attempts failed. Last error:', lastError);
       return new Response(
-        JSON.stringify({ error: 'Erreur lors de l\'analyse du PDF' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: 'Le service d\'analyse est temporairement indisponible. Veuillez réessayer dans quelques instants.' 
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
