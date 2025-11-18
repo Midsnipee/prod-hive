@@ -147,6 +147,7 @@ export type Database = {
       order_lines: {
         Row: {
           created_at: string
+          delivered_quantity: number | null
           id: string
           material_id: string | null
           material_name: string
@@ -157,6 +158,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          delivered_quantity?: number | null
           id?: string
           material_id?: string | null
           material_name: string
@@ -167,6 +169,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          delivered_quantity?: number | null
           id?: string
           material_id?: string | null
           material_name?: string
@@ -271,6 +274,7 @@ export type Database = {
           location: string | null
           material_id: string
           notes: string | null
+          order_line_id: string | null
           purchase_date: string | null
           serial_number: string
           status: Database["public"]["Enums"]["serial_status"]
@@ -283,6 +287,7 @@ export type Database = {
           location?: string | null
           material_id: string
           notes?: string | null
+          order_line_id?: string | null
           purchase_date?: string | null
           serial_number: string
           status?: Database["public"]["Enums"]["serial_status"]
@@ -295,6 +300,7 @@ export type Database = {
           location?: string | null
           material_id?: string
           notes?: string | null
+          order_line_id?: string | null
           purchase_date?: string | null
           serial_number?: string
           status?: Database["public"]["Enums"]["serial_status"]
@@ -307,6 +313,13 @@ export type Database = {
             columns: ["material_id"]
             isOneToOne: false
             referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "serials_order_line_id_fkey"
+            columns: ["order_line_id"]
+            isOneToOne: false
+            referencedRelation: "order_lines"
             referencedColumns: ["id"]
           },
         ]
