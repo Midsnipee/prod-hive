@@ -25,8 +25,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/db";
 import { DeliverySerialForm } from "@/components/forms/DeliverySerialForm";
+import { useOrders } from "@/hooks/useOrders";
 import { supabase } from "@/integrations/supabase/client";
 import { DeliveryProgressTable } from "@/components/orders/DeliveryProgressTable";
 

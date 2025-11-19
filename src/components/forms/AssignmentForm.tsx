@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { db } from '@/lib/db';
 import { toast } from 'sonner';
 import { Assignment } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
-import { User } from '@/lib/db';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { useAssignments } from '@/hooks/useAssignments';
+import { useSerials } from '@/hooks/useSerials';
 
 const assignmentSchema = z.object({
   serialNumber: z.string().min(1, 'Le numéro de série est requis'),
@@ -33,17 +34,15 @@ interface AssignmentFormProps {
 }
 
 export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialName, onSuccess, onCancel }: AssignmentFormProps) {
-  const [users, setUsers] = useState<User[]>([]);
-  const [serials, setSerials] = useState<string[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const { serials } = useSerials();
+  const { createAssignment, updateAssignment } = useAssignments();
 
   useEffect(() => {
-    Promise.all([
-      db.users.toArray(),
-      db.serials.toArray()
-    ]).then(([usersData, serialsData]) => {
-      setUsers(usersData);
-      setSerials(serialsData.map(s => s.serialNumber));
-    });
+    supabase
+      .from('profiles')
+      .select('*')
+      .then(({ data }) => setUsers(data || []));
   }, []);
 
   const form = useForm<AssignmentFormValues>({
@@ -68,49 +67,31 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
   });
 
   const onSubmit = async (values: AssignmentFormValues) => {
-    try {
-      // Trouver le serial correspondant
-      const serial = await db.serials.where('serialNumber').equals(values.serialNumber).first();
-      
-      if (!serial) {
-        toast.error('Numéro de série introuvable');
-        return;
-      }
-
-      const assignmentData: Assignment = {
-        id: assignment?.id || crypto.randomUUID(),
-        serialId: serial.id,
-        serialNumber: values.serialNumber,
-        materialName: values.materialName,
-        assignedTo: values.assignedTo,
-        department: values.department,
-        startDate: new Date(values.startDate),
-        expectedReturn: values.expectedReturn ? new Date(values.expectedReturn) : undefined,
-        renewalDate: values.renewalDate ? new Date(values.renewalDate) : undefined,
-        site: '',
-        supplier: ''
-      };
-
-      if (assignment?.id) {
-        await db.assignments.update(assignment.id, assignmentData);
-        toast.success('Attribution mise à jour');
-      } else {
-        // Créer l'attribution
-        await db.assignments.add(assignmentData);
-        
-        // Mettre à jour le statut du serial et l'assignation
-        await db.serials.update(serial.id, {
-          status: 'Attribué',
-          assignedTo: values.assignedTo
-        });
-        
-        toast.success('Attribution créée');
-      }
-      onSuccess();
-    } catch (error) {
-      console.error('Error saving assignment:', error);
-      toast.error('Erreur lors de la sauvegarde');
+    const serial = serials.find(s => s.serial_number === values.serialNumber);
+    
+    if (!serial) {
+      toast.error('Numéro de série introuvable');
+      return;
     }
+
+    const assignmentData = {
+      serial_id: serial.id,
+      serial_number: values.serialNumber,
+      assigned_to: values.assignedTo,
+      department: values.department,
+      start_date: new Date(values.startDate).toISOString(),
+      end_date: values.expectedReturn ? new Date(values.expectedReturn).toISOString() : null,
+      renewal_date: values.renewalDate ? new Date(values.renewalDate).toISOString() : null,
+      notes: null
+    };
+
+    if (assignment?.id) {
+      updateAssignment({ id: assignment.id, ...assignmentData });
+    } else {
+      createAssignment(assignmentData);
+    }
+    
+    onSuccess();
   };
 
   return (
@@ -130,8 +111,8 @@ export function AssignmentForm({ assignment, prefilledSerial, prefilledMaterialN
                 </FormControl>
                 <SelectContent>
                   {serials.map(serial => (
-                    <SelectItem key={serial} value={serial}>
-                      {serial}
+                    <SelectItem key={serial.id} value={serial.serial_number}>
+                      {serial.serial_number} {serial.material?.name && `(${serial.material.name})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
