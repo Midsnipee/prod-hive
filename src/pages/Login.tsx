@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,15 +14,9 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères')
 });
 
-const registerSchema = loginSchema.extend({
-  displayName: z.string().min(2, 'Le nom doit contenir au moins 2 caractères'),
-  department: z.string().min(2, 'Le département est requis'),
-  site: z.string().min(2, 'Le site est requis')
-});
-
 export default function Login() {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
 
   const loginForm = useForm<z.infer<typeof loginSchema>>({
@@ -32,21 +24,9 @@ export default function Login() {
     defaultValues: { email: '', password: '' }
   });
 
-  const registerForm = useForm<z.infer<typeof registerSchema>>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', password: '', displayName: '', department: '', site: '' }
-  });
-
   const handleLogin = async (values: z.infer<typeof loginSchema>) => {
     setIsLoading(true);
     const success = await login(values.email, values.password);
-    setIsLoading(false);
-    if (success) navigate('/');
-  };
-
-  const handleRegister = async (values: z.infer<typeof registerSchema>) => {
-    setIsLoading(true);
-    const success = await register(values.email, values.password, values.displayName, values.department, values.site);
     setIsLoading(false);
     if (success) navigate('/');
   };
@@ -58,14 +38,6 @@ export default function Login() {
           <img src="/src/assets/logo.png" alt="Logo" className="h-20 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-foreground">Gestion de Stock</h1>
         </div>
-
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Connexion</TabsTrigger>
-            <TabsTrigger value="register">Inscription</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="login">
             <Card>
               <CardHeader>
                 <CardTitle>Connexion</CardTitle>
