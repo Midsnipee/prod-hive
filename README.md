@@ -59,6 +59,36 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (via Lovable Cloud) - backend, database, authentication
+
+## Database Setup
+
+The database schema is fully reproducible from this repository. All migrations are stored in `supabase/migrations/`.
+
+### Local Development with Supabase CLI
+
+```sh
+# Start local Supabase instance (applies all migrations automatically)
+supabase start
+
+# Reset database (wipes data and reapplies migrations)
+supabase db reset
+
+# Or use the provided script
+./scripts/reset-database.sh
+```
+
+### Cloud Deployment
+
+```sh
+# Link to your Supabase project
+supabase link --project-ref <your-project-ref>
+
+# Push migrations to cloud
+supabase db push
+```
+
+For detailed instructions, see [supabase/README.md](supabase/README.md)
 
 ## How can I deploy this project?
 
