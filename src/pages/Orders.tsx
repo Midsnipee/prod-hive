@@ -66,8 +66,54 @@ const Orders = () => {
   }, []);
 
   const loadOrders = async () => {
-    const data = await db.orders.toArray();
-    setOrders(data);
+    try {
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      // Load order lines for each order
+      const ordersWithLines = await Promise.all(
+        (ordersData || []).map(async (order) => {
+          const { data: linesData } = await supabase
+            .from('order_lines')
+            .select('*')
+            .eq('order_id', order.id);
+
+          return {
+            id: order.id,
+            reference: order.reference,
+            supplier: order.supplier,
+            amount: order.amount,
+            status: order.status as OrderStatus,
+            createdAt: new Date(order.created_at),
+            currency: order.currency,
+            site: order.site || '',
+            requestedBy: order.requested_by || '',
+            description: order.description || '',
+            tags: [],
+            lines: (linesData || []).map(line => ({
+              id: line.id,
+              itemId: line.material_id || '',
+              description: line.material_name,
+              quantity: line.quantity,
+              unitPrice: line.unit_price,
+              taxRate: line.tax_rate
+            })),
+            deliveries: [],
+            history: [],
+            files: []
+          } as Order;
+        })
+      );
+
+      setOrders(ordersWithLines);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      toast.error('Erreur lors du chargement des commandes');
+    }
   };
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
@@ -81,7 +127,13 @@ const Orders = () => {
     }
 
     try {
-      await db.orders.update(orderId, { status: newStatus });
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+
+      if (error) throw error;
+
       setOrders(prevOrders =>
         prevOrders.map(order =>
           order.id === orderId ? { ...order, status: newStatus } : order
@@ -92,6 +144,7 @@ const Orders = () => {
       }
       toast.success('Statut mis à jour');
     } catch (error) {
+      console.error('Error updating status:', error);
       toast.error('Erreur lors de la mise à jour du statut');
     }
   };
@@ -198,7 +251,12 @@ const Orders = () => {
 
       // Only update to "Livré" if fully delivered
       if (isFullyDelivered) {
-        await db.orders.update(pendingDeliveryOrder.id, { status: "Livré" });
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: "Livré" })
+          .eq('id', pendingDeliveryOrder.id);
+
+        if (error) throw error;
         
         setOrders(prevOrders =>
           prevOrders.map(order =>

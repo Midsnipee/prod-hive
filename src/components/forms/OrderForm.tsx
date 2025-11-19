@@ -59,7 +59,25 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   useEffect(() => {
-    db.suppliers.toArray().then(setSuppliers);
+    const loadSuppliers = async () => {
+      const { data } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('name');
+      
+      if (data) {
+        setSuppliers(data.map(s => ({
+          id: s.id,
+          name: s.name,
+          contact: s.contact || undefined,
+          email: s.email || undefined,
+          phone: s.phone || undefined,
+          address: s.address || undefined,
+          createdAt: new Date(s.created_at)
+        })));
+      }
+    };
+    loadSuppliers();
   }, []);
 
   const form = useForm<OrderFormValues>({
@@ -341,22 +359,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         }
       }
 
-      // Also save to local DB for compatibility
-      if (order?.id) {
-        await db.orders.update(order.id, {
-          reference: orderData.reference,
-          supplier: orderData.supplier,
-          amount: orderData.amount,
-          status: orderData.status,
-          description: orderData.description,
-          lines: mappedLines
-        });
-        toast.success('Commande mise à jour');
-      } else {
-        await db.orders.add(orderData);
-        toast.success('Commande créée');
-      }
-      
+      toast.success(order?.id ? 'Commande mise à jour' : 'Commande créée');
       onSuccess();
     } catch (error) {
       console.error('Error saving order:', error);
