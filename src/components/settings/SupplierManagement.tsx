@@ -8,9 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { db, Supplier } from "@/lib/db";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Edit, Plus, Trash2 } from "lucide-react";
+import type { Tables } from "@/integrations/supabase/types";
 
 const supplierSchema = z.object({
   name: z.string().min(2, 'Le nom est requis'),
@@ -21,6 +22,7 @@ const supplierSchema = z.object({
 });
 
 type SupplierFormValues = z.infer<typeof supplierSchema>;
+type Supplier = Tables<'suppliers'>;
 
 export function SupplierManagement() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -32,8 +34,18 @@ export function SupplierManagement() {
   }, []);
 
   const loadSuppliers = async () => {
-    const data = await db.suppliers.toArray();
-    setSuppliers(data);
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSuppliers(data || []);
+    } catch (error) {
+      console.error('Error loading suppliers:', error);
+      toast.error('Erreur lors du chargement des fournisseurs');
+    }
   };
 
   const form = useForm<SupplierFormValues>({
@@ -50,24 +62,31 @@ export function SupplierManagement() {
   const onSubmit = async (values: SupplierFormValues) => {
     try {
       if (editingSupplier) {
-        await db.suppliers.update(editingSupplier.id, {
-          name: values.name!,
-          contact: values.contact,
-          email: values.email,
-          phone: values.phone,
-          address: values.address
-        });
+        const { error } = await supabase
+          .from('suppliers')
+          .update({
+            name: values.name,
+            contact: values.contact || null,
+            email: values.email || null,
+            phone: values.phone || null,
+            address: values.address || null
+          })
+          .eq('id', editingSupplier.id);
+
+        if (error) throw error;
         toast.success('Fournisseur mis à jour');
       } else {
-        await db.suppliers.add({
-          id: crypto.randomUUID(),
-          name: values.name!,
-          contact: values.contact,
-          email: values.email,
-          phone: values.phone,
-          address: values.address,
-          createdAt: new Date()
-        });
+        const { error } = await supabase
+          .from('suppliers')
+          .insert({
+            name: values.name,
+            contact: values.contact || null,
+            email: values.email || null,
+            phone: values.phone || null,
+            address: values.address || null
+          });
+
+        if (error) throw error;
         toast.success('Fournisseur créé');
       }
       setShowDialog(false);
@@ -75,6 +94,7 @@ export function SupplierManagement() {
       form.reset();
       loadSuppliers();
     } catch (error) {
+      console.error('Error saving supplier:', error);
       toast.error('Erreur lors de la sauvegarde');
     }
   };
@@ -94,10 +114,16 @@ export function SupplierManagement() {
   const handleDelete = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce fournisseur ?')) {
       try {
-        await db.suppliers.delete(id);
+        const { error } = await supabase
+          .from('suppliers')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
         toast.success('Fournisseur supprimé');
         loadSuppliers();
       } catch (error) {
+        console.error('Error deleting supplier:', error);
         toast.error('Erreur lors de la suppression');
       }
     }
