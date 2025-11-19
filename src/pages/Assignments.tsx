@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +20,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ImportUsersCSV } from "@/components/settings/ImportUsersCSV";
+import { supabase } from "@/integrations/supabase/client";
+import { format } from "date-fns";
 
 const Assignments = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -160,6 +162,31 @@ const Assignments = () => {
 
 const AssignmentSheet = ({ assignmentId, onOpenChange }: { assignmentId: string | null; onOpenChange: (open: boolean) => void }) => {
   const assignment = assignmentId ? mockAssignments.find(item => item.id === assignmentId) : undefined;
+  const [documents, setDocuments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (assignment) {
+      loadDocuments(assignment.assignedTo);
+    }
+  }, [assignment]);
+
+  const loadDocuments = async (assignedTo: string) => {
+    const { data, error } = await supabase
+      .from('assignment_documents')
+      .select(`
+        *,
+        assignments!inner(
+          assigned_to,
+          start_date,
+          serial_number
+        )
+      `)
+      .eq('assignments.assigned_to', assignedTo);
+
+    if (!error && data) {
+      setDocuments(data);
+    }
+  };
 
   if (!assignment) {
     return <Sheet open={false} onOpenChange={onOpenChange} />;
@@ -200,9 +227,32 @@ const AssignmentSheet = ({ assignmentId, onOpenChange }: { assignmentId: string 
 
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase text-muted-foreground">Documents</h3>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Charte téléchargée")}> <FileText className="h-4 w-4" /> Charte</Button>
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Reçu partagé")}> <Send className="h-4 w-4" /> Partager</Button>
+              <div className="flex flex-col gap-2">
+                {documents.length > 0 ? (
+                  documents.map((doc: any) => (
+                    <Button
+                      key={doc.id}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 justify-start"
+                      onClick={() => {
+                        const printWindow = window.open("", "_blank");
+                        if (printWindow) {
+                          printWindow.document.write(doc.document_html);
+                          printWindow.document.close();
+                        }
+                      }}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Document télétravail - {format(new Date(doc.assignments.start_date), "dd/MM/yyyy")}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aucun document disponible</p>
+                )}
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Reçu partagé")}>
+                  <Send className="h-4 w-4" /> Partager
+                </Button>
               </div>
             </section>
 
