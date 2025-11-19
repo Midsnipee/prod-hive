@@ -15,13 +15,18 @@ import { cn } from "@/lib/utils";
 interface DeliverySerialFormProps {
   open: boolean;
   orderLines: OrderLine[];
-  onConfirm: (serialNumbers: Record<string, string[]>, renewalDates: Record<string, Date | undefined>) => void;
+  onConfirm: (
+    serialNumbers: Record<string, string[]>, 
+    renewalDates: Record<string, Date | undefined>,
+    warrantyEndDates: Record<string, Date | undefined>
+  ) => void;
   onCancel: () => void;
 }
 
 export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: DeliverySerialFormProps) => {
   const [serialInputs, setSerialInputs] = useState<Record<string, string[]>>({});
   const [renewalDates, setRenewalDates] = useState<Record<string, Date | undefined>>({});
+  const [warrantyEndDates, setWarrantyEndDates] = useState<Record<string, Date | undefined>>({});
 
   // Initialize serial inputs when orderLines change
   useEffect(() => {
@@ -61,7 +66,7 @@ export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: De
     Object.entries(serialInputs).forEach(([lineId, serials]) => {
       cleanedSerials[lineId] = serials.filter(s => s.trim() !== "");
     });
-    onConfirm(cleanedSerials, renewalDates);
+    onConfirm(cleanedSerials, renewalDates, warrantyEndDates);
   };
 
   const isValid = Object.values(serialInputs).some(serials => 
@@ -99,35 +104,68 @@ export const DeliverySerialForm = ({ open, orderLines, onConfirm, onCancel }: De
                   </Button>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Date de renouvellement prévu (optionnel)</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !renewalDates[line.id] && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {renewalDates[line.id] ? (
-                          format(renewalDates[line.id]!, "PPP", { locale: fr })
-                        ) : (
-                          <span>Sélectionner une date</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={renewalDates[line.id]}
-                        onSelect={(date) => setRenewalDates(prev => ({ ...prev, [line.id]: date }))}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Date de fin de garantie (optionnel)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !warrantyEndDates[line.id] && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {warrantyEndDates[line.id] ? (
+                            format(warrantyEndDates[line.id]!, "PPP", { locale: fr })
+                          ) : (
+                            <span>Sélectionner une date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={warrantyEndDates[line.id]}
+                          onSelect={(date) => setWarrantyEndDates(prev => ({ ...prev, [line.id]: date }))}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Date de renouvellement prévu (optionnel)</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !renewalDates[line.id] && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {renewalDates[line.id] ? (
+                            format(renewalDates[line.id]!, "PPP", { locale: fr })
+                          ) : (
+                            <span>Sélectionner une date</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={renewalDates[line.id]}
+                          onSelect={(date) => setRenewalDates(prev => ({ ...prev, [line.id]: date }))}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
