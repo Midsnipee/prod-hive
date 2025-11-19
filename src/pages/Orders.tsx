@@ -96,7 +96,11 @@ const Orders = () => {
     }
   };
 
-  const handleDeliveryConfirm = async (serialNumbers: Record<string, string[]>, renewalDates: Record<string, Date | undefined>) => {
+  const handleDeliveryConfirm = async (
+    serialNumbers: Record<string, string[]>, 
+    renewalDates: Record<string, Date | undefined>,
+    warrantyEndDates: Record<string, Date | undefined>
+  ) => {
     if (!pendingDeliveryOrder) return;
 
     try {
@@ -162,6 +166,7 @@ const Orders = () => {
               order_line_id: orderLineData?.id || null,
               status: 'En stock',
               purchase_date: new Date().toISOString(),
+              warranty_end: warrantyEndDates[lineId] ? warrantyEndDates[lineId]!.toISOString() : null,
               renewal_date: renewalDates[lineId] ? renewalDates[lineId]!.toISOString() : null,
             });
 
