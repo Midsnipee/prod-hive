@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      assignment_documents: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          document_html: string
+          id: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          document_html: string
+          id?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          document_html?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_documents_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignments: {
         Row: {
           assigned_to: string

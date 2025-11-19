@@ -121,7 +121,7 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
     }
 
     // Create assignment
-    const { error: assignmentError } = await supabase
+    const { data: assignmentData, error: assignmentError } = await supabase
       .from("assignments")
       .insert({
         serial_id: values.serialId,
@@ -130,9 +130,11 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
         department: values.department,
         start_date: values.startDate.toISOString(),
         notes: values.notes || null,
-      });
+      })
+      .select()
+      .single();
 
-    if (assignmentError) {
+    if (assignmentError || !assignmentData) {
       toast({
         title: "Erreur",
         description: "Impossible de créer l'attribution",
@@ -163,7 +165,7 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
       description: "Le matériel a été attribué avec succès",
     });
 
-    // If status is Télétravail, show print dialog
+    // If status is Télétravail, show print dialog and save document
     if (values.status === "Télétravail") {
       // Get full material details
       const { data: materialData } = await supabase
@@ -172,7 +174,8 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
         .eq("id", selectedSerial.material_id)
         .single();
 
-      setAssignmentData({
+      const documentData = {
+        assignmentId: assignmentData.id,
         serialNumber: selectedSerial.serial_number,
         materialName: materialData?.name || selectedSerial.material_name,
         model: materialData?.model || "N/A",
@@ -180,7 +183,28 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
         assignedTo: values.assignedTo,
         department: values.department,
         startDate: format(values.startDate, "dd/MM/yyyy"),
-      });
+      };
+
+      // Generate and save document HTML
+      const documentHtml = generateDocumentHtml(documentData);
+      
+      const { error: docError } = await supabase
+        .from("assignment_documents")
+        .insert({
+          assignment_id: assignmentData.id,
+          document_html: documentHtml,
+        });
+
+      if (docError) {
+        console.error("Error saving document:", docError);
+        toast({
+          title: "Avertissement",
+          description: "Document généré mais non sauvegardé",
+          variant: "destructive",
+        });
+      }
+
+      setAssignmentData(documentData);
       setShowPrintDialog(true);
     }
 
@@ -191,12 +215,7 @@ export function AssignForm({ onSuccess }: AssignFormProps) {
     }
   };
 
-  const handlePrint = () => {
-    if (!assignmentData) return;
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
+  const generateDocumentHtml = (data: any) => {
     const documentText = `Ce document certifie que le matériel ci-dessous a été confié en télétravail.
     
 L'utilisateur s'engage à :
@@ -207,7 +226,7 @@ L'utilisateur s'engage à :
 
 Tout dommage ou perte devra être signalé immédiatement.`;
 
-    printWindow.document.write(`
+    return `
       <!DOCTYPE html>
       <html>
         <head>
@@ -233,19 +252,13 @@ Tout dommage ou perte devra être signalé immédiatement.`;
             .info-row {
               display: flex;
               margin: 10px 0;
-              padding: 8px 0;
-              border-bottom: 1px solid #f3f4f6;
-            }
-            .info-row:last-child {
-              border-bottom: none;
             }
             .info-label {
               font-weight: bold;
-              width: 180px;
-              color: #374151;
+              min-width: 150px;
             }
             .info-value {
-              color: #1f2937;
+              flex: 1;
             }
             .text-section {
               margin: 30px 0;
@@ -286,19 +299,19 @@ Tout dommage ou perte devra être signalé immédiatement.`;
             <h2 style="margin-top: 0; color: #1e40af;">Informations du Matériel</h2>
             <div class="info-row">
               <span class="info-label">Matériel :</span>
-              <span class="info-value">${assignmentData.materialName}</span>
+              <span class="info-value">${data.materialName}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Modèle :</span>
-              <span class="info-value">${assignmentData.model}</span>
+              <span class="info-value">${data.model}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Fabricant :</span>
-              <span class="info-value">${assignmentData.manufacturer}</span>
+              <span class="info-value">${data.manufacturer}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Numéro de série :</span>
-              <span class="info-value">${assignmentData.serialNumber}</span>
+              <span class="info-value">${data.serialNumber}</span>
             </div>
           </div>
 
@@ -306,15 +319,15 @@ Tout dommage ou perte devra être signalé immédiatement.`;
             <h2 style="margin-top: 0; color: #1e40af;">Informations de l'Attribution</h2>
             <div class="info-row">
               <span class="info-label">Attribué à :</span>
-              <span class="info-value">${assignmentData.assignedTo}</span>
+              <span class="info-value">${data.assignedTo}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Département :</span>
-              <span class="info-value">${assignmentData.department}</span>
+              <span class="info-value">${data.department}</span>
             </div>
             <div class="info-row">
               <span class="info-label">Date de début :</span>
-              <span class="info-value">${assignmentData.startDate}</span>
+              <span class="info-value">${data.startDate}</span>
             </div>
           </div>
 
@@ -345,7 +358,17 @@ Tout dommage ou perte devra être signalé immédiatement.`;
           </div>
         </body>
       </html>
-    `);
+    `;
+  };
+
+  const handlePrint = () => {
+    if (!assignmentData) return;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const documentHtml = generateDocumentHtml(assignmentData);
+    printWindow.document.write(documentHtml);
     printWindow.document.close();
   };
 

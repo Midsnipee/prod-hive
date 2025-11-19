@@ -13,21 +13,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Material, Serial, SerialStatus } from "@/lib/mockData";
-import { ArrowLeft, ArrowUpDown, Edit, Plus } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Edit, FileText, Plus } from "lucide-react";
 import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { addDays } from "date-fns";
+import { addDays, format } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MaterialForm } from "@/components/forms/MaterialForm";
 import { AssignmentForm } from "@/components/forms/AssignmentForm";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const MaterialDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [material, setMaterial] = useState<Material | null>(null);
   const [serials, setSerials] = useState<Serial[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [selectedSerial, setSelectedSerial] = useState<string>("");
@@ -111,6 +113,30 @@ const MaterialDetail = () => {
     });
 
     setSerials(serialsData);
+
+    // Load assignment documents for this material's serials
+    const serialIds = supabaseSerials?.map(s => s.id) || [];
+    if (serialIds.length > 0) {
+      const { data: docsData, error: docsError } = await supabase
+        .from('assignment_documents')
+        .select(`
+          *,
+          assignments!inner(
+            serial_id,
+            assigned_to,
+            start_date,
+            serials!inner(
+              serial_number,
+              material_id
+            )
+          )
+        `)
+        .in('assignments.serial_id', serialIds);
+
+      if (!docsError && docsData) {
+        setDocuments(docsData);
+      }
+    }
   };
 
   if (!material) {
@@ -171,6 +197,45 @@ const MaterialDetail = () => {
           <p className="text-lg font-semibold mt-1">{material.site}</p>
         </div>
       </div>
+
+      {documents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Documents d'attribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {documents.map((doc: any) => (
+                <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                  <div className="flex-1">
+                    <p className="font-medium">{doc.assignments.assigned_to}</p>
+                    <p className="text-sm text-muted-foreground">
+                      N° série: {doc.assignments.serials.serial_number} • {format(new Date(doc.assignments.start_date), "dd/MM/yyyy")}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const printWindow = window.open("", "_blank");
+                      if (printWindow) {
+                        printWindow.document.write(doc.document_html);
+                        printWindow.document.close();
+                      }
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Voir le document
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
