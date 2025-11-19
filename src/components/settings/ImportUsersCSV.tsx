@@ -120,11 +120,11 @@ export function ImportUsersCSV() {
     setImporting(true);
     setProgress(0);
     const errors: string[] = [];
-    let successCount = 0;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
         toast.error("Utilisateur non connecté");
         setImporting(false);
         return;
@@ -139,68 +139,95 @@ export function ImportUsersCSV() {
         return;
       }
 
+      // Validate all rows first
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const validRoles = ['admin', 'magasinier', 'acheteur', 'lecteur'];
+
+      const validUsers = [];
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowNum = i + 2;
 
-        try {
-          // Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(row.email)) {
-            errors.push(`Ligne ${rowNum}: Email invalide "${row.email}"`);
-            continue;
-          }
-
-          // Validate role
-          const validRoles = ['admin', 'magasinier', 'acheteur', 'lecteur'];
-          if (row.role && !validRoles.includes(row.role)) {
-            errors.push(`Ligne ${rowNum}: Rôle invalide "${row.role}". Utilisez: ${validRoles.join(', ')}`);
-            continue;
-          }
-
-          // Check if user already exists in profiles
-          const { data: existingProfile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("email", row.email)
-            .maybeSingle();
-
-          if (existingProfile) {
-            errors.push(`Ligne ${rowNum}: Utilisateur "${row.email}" existe déjà`);
-            continue;
-          }
-
-          // Create user via Supabase Auth (requires admin privileges)
-          // Note: This requires the service role key, so we'll create a profile only
-          // The actual user signup should be done by the user themselves or via an admin function
-          
-          // For now, we'll just create the profile with a placeholder user_id
-          // In production, you'd want to use an edge function with admin privileges
-          errors.push(`Ligne ${rowNum}: Création automatique d'utilisateurs non supportée. Les utilisateurs doivent s'inscrire eux-mêmes.`);
-          
-          // Alternative: Create invitation system or use edge function
-          
-        } catch (error) {
-          console.error(`Error processing row ${rowNum}:`, error);
-          errors.push(`Ligne ${rowNum}: Erreur inattendue`);
+        if (!emailRegex.test(row.email)) {
+          errors.push(`Ligne ${rowNum}: Email invalide "${row.email}"`);
+          continue;
         }
 
-        setProgress(((i + 1) / rows.length) * 100);
+        if (row.role && !validRoles.includes(row.role)) {
+          errors.push(`Ligne ${rowNum}: Rôle invalide "${row.role}". Utilisez: ${validRoles.join(', ')}`);
+          continue;
+        }
+
+        validUsers.push({
+          email: row.email,
+          displayName: row.displayName,
+          department: row.department,
+          site: row.site,
+          role: row.role || 'lecteur'
+        });
       }
 
-      setResult({ success: successCount, errors });
+      if (validUsers.length === 0) {
+        toast.error("Aucun utilisateur valide à importer");
+        setImporting(false);
+        setResult({ success: 0, errors });
+        return;
+      }
+
+      toast.info(`Import de ${validUsers.length} utilisateur(s) en cours...`);
+
+      // Call edge function to create users in bulk
+      const { data, error } = await supabase.functions.invoke('bulk-create-users', {
+        body: { users: validUsers }
+      });
+
+      if (error) {
+        console.error("Edge function error:", error);
+        toast.error(`Erreur lors de l'import: ${error.message}`);
+        setResult({ 
+          success: 0, 
+          errors: [...errors, `Erreur serveur: ${error.message}`] 
+        });
+        setImporting(false);
+        return;
+      }
+
+      // Process results from edge function
+      const successCount = data.success || 0;
+      const serverErrors = data.errors || [];
+
+      // Combine local validation errors with server errors
+      const allErrors = [
+        ...errors,
+        ...serverErrors.map((e: any) => `${e.email}: ${e.error}`)
+      ];
+
+      setProgress(100);
+      setResult({ success: successCount, errors: allErrors });
 
       if (successCount > 0) {
-        toast.success(`${successCount} utilisateur(s) importé(s) avec succès`);
+        toast.success(`${successCount} utilisateur(s) créé(s) avec succès`);
       }
 
-      if (errors.length > 0) {
-        toast.error(`${errors.length} erreur(s) lors de l'import`);
+      if (allErrors.length > 0) {
+        toast.error(`${allErrors.length} erreur(s) lors de l'import`);
+      }
+
+      // Reload users list if any were created
+      if (successCount > 0) {
+        // Trigger a refresh after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       }
 
     } catch (error) {
       console.error("Import error:", error);
       toast.error("Erreur lors de l'import du fichier");
+      setResult({ 
+        success: 0, 
+        errors: [...errors, error instanceof Error ? error.message : 'Erreur inconnue'] 
+      });
     } finally {
       setImporting(false);
     }
@@ -226,7 +253,14 @@ export function ImportUsersCSV() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Note importante :</strong> Cette fonctionnalité crée des invitations. Les utilisateurs devront s'inscrire avec leur email pour activer leur compte.
+              <strong>Important - Import en masse optimisé :</strong>
+              <ul className="mt-2 space-y-1 text-sm list-disc list-inside">
+                <li>Le fichier CSV doit contenir : email, displayName, department (opt.), site (opt.), role (opt.)</li>
+                <li>Les utilisateurs seront créés avec un mot de passe temporaire généré automatiquement</li>
+                <li>L'import traite jusqu'à 1000 utilisateurs par lots de 10 pour optimiser les performances</li>
+                <li>Les emails des utilisateurs seront automatiquement confirmés</li>
+                <li>Les utilisateurs pourront se connecter immédiatement</li>
+              </ul>
             </AlertDescription>
           </Alert>
 

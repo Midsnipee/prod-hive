@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Edit, Plus, Trash2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { ImportUsersCSV } from "./ImportUsersCSV";
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -197,10 +198,13 @@ export function UserManagement() {
             Gérez les utilisateurs et leurs rôles
           </p>
         </div>
-        <Button onClick={handleAdd} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Ajouter un utilisateur
-        </Button>
+        <div className="flex gap-2">
+          <ImportUsersCSV />
+          <Button onClick={handleAdd} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Ajouter un utilisateur
+          </Button>
+        </div>
       </div>
 
       <Table>
