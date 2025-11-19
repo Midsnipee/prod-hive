@@ -6,9 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { db } from '@/lib/db';
 import { toast } from 'sonner';
 import { Material, MaterialCategory } from '@/lib/mockData';
+import { useMaterials } from '@/hooks/useMaterials';
+import { Enums } from '@/integrations/supabase/types';
 
 const materialSchema = z.object({
   name: z.string().min(2, 'Le nom doit contenir au moins 2 caractères').max(100),
@@ -30,6 +31,8 @@ interface MaterialFormProps {
 }
 
 export function MaterialForm({ material, onSuccess, onCancel }: MaterialFormProps) {
+  const { createMaterial, updateMaterial } = useMaterials();
+  
   const form = useForm<MaterialFormValues>({
     resolver: zodResolver(materialSchema),
     defaultValues: material ? {
@@ -54,42 +57,22 @@ export function MaterialForm({ material, onSuccess, onCancel }: MaterialFormProp
   });
 
   const onSubmit = async (values: MaterialFormValues) => {
-    try {
-      const materialData: Material = {
-        id: material?.id || crypto.randomUUID(),
-        name: values.name,
-        category: values.category as MaterialCategory,
-        internalRef: values.internalRef,
-        defaultSupplier: values.supplier,
-        defaultUnitPrice: values.price,
-        stock: values.stock,
-        lowStockThreshold: values.threshold,
-        site: values.site,
-        pendingDeliveries: material?.pendingDeliveries || 0,
-        nonSerializedStock: material?.nonSerializedStock || 0,
-        tags: material?.tags || []
-      };
+    const materialData = {
+      name: values.name,
+      category: 'PC Portable' as Enums<'material_category'>,
+      manufacturer: values.supplier,
+      unit_price: values.price,
+      stock: values.stock,
+      min_stock: values.threshold,
+      description: ''
+    };
 
-      if (material?.id) {
-        await db.materials.update(material.id, {
-          name: materialData.name,
-          category: materialData.category,
-          internalRef: materialData.internalRef,
-          defaultSupplier: materialData.defaultSupplier,
-          defaultUnitPrice: materialData.defaultUnitPrice,
-          stock: materialData.stock,
-          lowStockThreshold: materialData.lowStockThreshold,
-          site: materialData.site
-        });
-        toast.success('Matériel mis à jour');
-      } else {
-        await db.materials.add(materialData);
-        toast.success('Matériel créé');
-      }
-      onSuccess();
-    } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
+    if (material?.id) {
+      updateMaterial({ id: material.id, ...materialData });
+    } else {
+      createMaterial(materialData);
     }
+    onSuccess();
   };
 
   return (

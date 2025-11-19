@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/table";
 import { Material, Serial, SerialStatus } from "@/lib/mockData";
 import { ArrowLeft, ArrowUpDown, Edit, FileText, Plus } from "lucide-react";
-import { db } from "@/lib/db";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, format } from "date-fns";
@@ -325,9 +324,17 @@ const MaterialDetail = () => {
                     <Select 
                       value={serial.status} 
                       onValueChange={async (value: SerialStatus) => {
-                        await db.serials.update(serial.id, { status: value });
-                        loadData();
-                        toast.success("Statut mis à jour");
+                        const { error } = await supabase
+                          .from('serials')
+                          .update({ status: value })
+                          .eq('id', serial.id);
+                        
+                        if (!error) {
+                          loadData();
+                          toast.success("Statut mis à jour");
+                        } else {
+                          toast.error("Erreur lors de la mise à jour");
+                        }
                       }}
                     >
                       <SelectTrigger className="w-[140px]">

@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { db } from '@/lib/db';
 import { toast } from 'sonner';
 import { Order } from '@/lib/mockData';
 import { useEffect, useState } from 'react';
-import { Supplier } from '@/lib/db';
+import { useSuppliers } from '@/hooks/useSuppliers';
+import { useOrders } from '@/hooks/useOrders';
+import { Tables } from '@/integrations/supabase/types';
 import { Upload, Loader2, X, Plus, FileDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -43,7 +44,8 @@ interface OrderLine {
 }
 
 export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const { suppliers: suppliersList } = useSuppliers();
+  const { createOrder, updateOrder } = useOrders();
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [orderLines, setOrderLines] = useState<OrderLine[]>([]);
@@ -58,27 +60,6 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
   });
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  useEffect(() => {
-    const loadSuppliers = async () => {
-      const { data } = await supabase
-        .from('suppliers')
-        .select('*')
-        .order('name');
-      
-      if (data) {
-        setSuppliers(data.map(s => ({
-          id: s.id,
-          name: s.name,
-          contact: s.contact || undefined,
-          email: s.email || undefined,
-          phone: s.phone || undefined,
-          address: s.address || undefined,
-          createdAt: new Date(s.created_at)
-        })));
-      }
-    };
-    loadSuppliers();
-  }, []);
 
   const form = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -138,7 +119,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
         
         // Handle supplier
         if (data.supplier) {
-          const existingSupplier = suppliers.find(s => 
+          const existingSupplier = suppliersList.find(s => 
             s.name.toLowerCase() === data.supplier.toLowerCase()
           );
           
@@ -187,36 +168,28 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
     setTimeout(calculateTotal, 0);
   };
 
-  const handleCreateSupplier = async () => {
-    try {
-      await db.suppliers.add({
-        id: crypto.randomUUID(),
-        name: newSupplierForm.name,
-        contact: newSupplierForm.contact || null,
-        email: newSupplierForm.email || null,
-        phone: newSupplierForm.phone || null,
-        address: newSupplierForm.address || null,
-        createdAt: new Date()
-      });
-      
-      const updatedSuppliers = await db.suppliers.toArray();
-      setSuppliers(updatedSuppliers);
-      form.setValue('supplier', newSupplierForm.name);
-      setShowNewSupplierDialog(false);
-      toast.success(`Fournisseur "${newSupplierForm.name}" créé avec succès`);
-      
-      // Reset form
-      setNewSupplierForm({
-        name: '',
-        contact: '',
-        email: '',
-        phone: '',
-        address: ''
-      });
-    } catch (error) {
-      console.error('Error creating supplier:', error);
-      toast.error('Erreur lors de la création du fournisseur');
-    }
+  const handleCreateSupplier = () => {
+    const { createSupplier } = useSuppliers();
+    createSupplier({
+      name: newSupplierForm.name,
+      contact: newSupplierForm.contact || null,
+      email: newSupplierForm.email || null,
+      phone: newSupplierForm.phone || null,
+      address: newSupplierForm.address || null
+    });
+    
+    form.setValue('supplier', newSupplierForm.name);
+    setShowNewSupplierDialog(false);
+    setExtractedSupplier('');
+    
+    // Reset form
+    setNewSupplierForm({
+      name: '',
+      contact: '',
+      email: '',
+      phone: '',
+      address: ''
+    });
   };
 
   const handleGeneratePdf = async () => {
@@ -427,7 +400,7 @@ export function OrderForm({ order, onSuccess, onCancel }: OrderFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {suppliers.map(supplier => (
+                    {suppliersList.map(supplier => (
                       <SelectItem key={supplier.id} value={supplier.name}>
                         {supplier.name}
                       </SelectItem>

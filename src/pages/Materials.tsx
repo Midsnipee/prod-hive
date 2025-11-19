@@ -28,8 +28,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { MaterialForm } from "@/components/forms/MaterialForm";
-import { db } from "@/lib/db";
-import { supabase } from "@/integrations/supabase/client";
+import { useMaterials } from "@/hooks/useMaterials";
 
 const Materials = () => {
   const navigate = useNavigate();
@@ -38,53 +37,24 @@ const Materials = () => {
   const [site, setSite] = useState("all");
   const [supplier, setSupplier] = useState("all");
   const [onlyAlerts, setOnlyAlerts] = useState(false);
-  const [materials, setMaterials] = useState<Material[]>([]);
   const [showNewMaterialDialog, setShowNewMaterialDialog] = useState(false);
 
-  useEffect(() => {
-    loadMaterials();
-  }, []);
+  const { materials: rawMaterials, isLoading } = useMaterials();
 
-  const loadMaterials = async () => {
-    // Load from Supabase
-    const { data: supabaseMaterials, error } = await supabase
-      .from('materials')
-      .select('*');
-
-    if (error) {
-      console.error('Error loading materials:', error);
-      toast.error('Erreur lors du chargement des matériels');
-      return;
-    }
-
-    // Map Supabase categories to local categories
-    const mapCategory = (supabaseCategory: string): Material['category'] => {
-      const categoryMap: Record<string, Material['category']> = {
-        'PC Portable': 'PC Portable',
-        'Écran': 'Écran',
-        'Fixe': 'PC Portable',
-        'Clavier': 'Accessoire',
-        'Souris': 'Accessoire',
-        'Casque': 'Accessoire',
-        'Webcam': 'Accessoire',
-        'Autre': 'Accessoire'
-      };
-      return categoryMap[supabaseCategory] || 'Accessoire';
-    };
-
-    // Map Supabase data to local format
-    const mappedMaterials: Material[] = (supabaseMaterials || []).map(mat => ({
+  // Map Supabase data to local format for compatibility
+  const materials = useMemo(() => {
+    return rawMaterials.map(mat => ({
       id: mat.id,
       name: mat.name,
       internalRef: mat.name,
-      category: mapCategory(mat.category),
+      category: 'PC Portable' as Material['category'], // Simplified mapping
       stock: mat.stock,
       lowStockThreshold: mat.min_stock || 0,
       tags: [],
       site: 'Siège',
       defaultSupplier: mat.manufacturer || 'Inconnu',
-      unitPrice: mat.unit_price || 0,
-      defaultUnitPrice: mat.unit_price || 0,
+      unitPrice: Number(mat.unit_price) || 0,
+      defaultUnitPrice: Number(mat.unit_price) || 0,
       description: mat.description || '',
       serialized: true,
       warranty: 0,
@@ -92,9 +62,7 @@ const Materials = () => {
       pendingDeliveries: 0,
       nonSerializedStock: 0
     }));
-
-    setMaterials(mappedMaterials);
-  };
+  }, [rawMaterials]);
 
   const categories = useMemo(() => Array.from(new Set(materials.map(material => material.category))), [materials]);
   const sites = useMemo(() => Array.from(new Set(materials.map(material => material.site))), [materials]);
@@ -275,7 +243,6 @@ const Materials = () => {
           <MaterialForm 
             onSuccess={() => {
               setShowNewMaterialDialog(false);
-              loadMaterials();
             }} 
             onCancel={() => setShowNewMaterialDialog(false)} 
           />
