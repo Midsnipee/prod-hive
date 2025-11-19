@@ -11,7 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Plus, Trash2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database['public']['Enums']['app_role'];
@@ -19,6 +19,7 @@ type AppRole = Database['public']['Enums']['app_role'];
 const userSchema = z.object({
   displayName: z.string().min(2, 'Le nom est requis'),
   email: z.string().email('Email invalide'),
+  password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères').optional(),
   department: z.string().optional(),
   site: z.string().optional(),
   role: z.enum(['admin', 'magasinier', 'acheteur', 'lecteur'])
@@ -82,6 +83,7 @@ export function UserManagement() {
     defaultValues: {
       displayName: '',
       email: '',
+      password: '',
       department: '',
       site: '',
       role: 'lecteur'
@@ -113,6 +115,38 @@ export function UserManagement() {
         if (roleError) throw roleError;
 
         toast.success('Utilisateur mis à jour');
+      } else {
+        // Create new user
+        if (!values.password) {
+          toast.error('Le mot de passe est requis pour créer un utilisateur');
+          return;
+        }
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: values.email,
+          password: values.password,
+          options: {
+            data: {
+              display_name: values.displayName,
+              department: values.department || null,
+              site: values.site || null
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        // Update role if user was created
+        if (authData.user && values.role !== 'lecteur') {
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .update({ role: values.role as AppRole })
+            .eq('user_id', authData.user.id);
+
+          if (roleError) throw roleError;
+        }
+
+        toast.success('Utilisateur créé avec succès');
       }
       setShowDialog(false);
       setEditingUser(null);
@@ -129,9 +163,23 @@ export function UserManagement() {
     form.reset({
       displayName: user.display_name,
       email: user.email,
+      password: '',
       department: user.department || '',
       site: user.site || '',
       role: user.role
+    });
+    setShowDialog(true);
+  };
+
+  const handleAdd = () => {
+    setEditingUser(null);
+    form.reset({
+      displayName: '',
+      email: '',
+      password: '',
+      department: '',
+      site: '',
+      role: 'lecteur'
     });
     setShowDialog(true);
   };
@@ -149,6 +197,10 @@ export function UserManagement() {
             Gérez les utilisateurs et leurs rôles
           </p>
         </div>
+        <Button onClick={handleAdd} size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Ajouter un utilisateur
+        </Button>
       </div>
 
       <Table>
@@ -203,9 +255,14 @@ export function UserManagement() {
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Modifier utilisateur</DialogTitle>
+            <DialogTitle>
+              {editingUser ? 'Modifier l\'utilisateur' : 'Créer un nouvel utilisateur'}
+            </DialogTitle>
             <DialogDescription>
-              Modifiez les informations de l'utilisateur
+              {editingUser 
+                ? 'Modifiez les informations de l\'utilisateur'
+                : 'Créez un nouveau compte utilisateur avec email et mot de passe'
+              }
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -230,12 +287,27 @@ export function UserManagement() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" {...field} disabled />
+                      <Input type="email" {...field} disabled={!!editingUser} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              {!editingUser && (
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mot de passe</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} placeholder="Minimum 6 caractères" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="department"
