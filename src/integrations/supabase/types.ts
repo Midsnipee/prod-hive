@@ -404,42 +404,6 @@ export type Database = {
         }
         Relationships: []
       }
-      users: {
-        Row: {
-          created_at: string
-          department: string | null
-          display_name: string
-          email: string
-          id: string
-          password: string
-          role: Database["public"]["Enums"]["user_role"]
-          site: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          department?: string | null
-          display_name: string
-          email: string
-          id?: string
-          password: string
-          role?: Database["public"]["Enums"]["user_role"]
-          site?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          department?: string | null
-          display_name?: string
-          email?: string
-          id?: string
-          password?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          site?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -475,7 +439,6 @@ export type Database = {
         | "En réparation"
         | "Retiré"
         | "Télétravail"
-      user_role: "admin" | "magasinier" | "acheteur" | "lecteur"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -627,7 +590,6 @@ export const Constants = {
         "Retiré",
         "Télétravail",
       ],
-      user_role: ["admin", "magasinier", "acheteur", "lecteur"],
     },
   },
 } as const
