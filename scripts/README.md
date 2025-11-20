@@ -8,17 +8,19 @@ Script de déploiement automatique pour synchroniser et déployer l'application 
 
 ### Usage
 
+**Important**: Exécutez le script depuis un terminal, pas en double-cliquant dessus.
+
 ```bash
-# Déploiement local (par défaut)
-./scripts/deploy.sh
-./scripts/deploy.sh local
+# 1. Rendre le script exécutable (une seule fois)
+chmod +x scripts/deploy.sh
 
-# Déploiement staging
-./scripts/deploy.sh staging
-
-# Déploiement production
-./scripts/deploy.sh production
+# 2. Exécuter le script
+./scripts/deploy.sh local           # Déploiement local (par défaut)
+./scripts/deploy.sh staging         # Déploiement staging
+./scripts/deploy.sh production      # Déploiement production
 ```
+
+**Sur Windows**: Utilisez Git Bash ou WSL pour exécuter les scripts bash.
 
 ### Ce que fait le script
 

@@ -34,11 +34,17 @@ npm install
 
 #### Option A: Développement Local (Recommandé pour débuter)
 
+**Important**: Le script doit être exécuté depuis un terminal, pas en double-cliquant dessus.
+
 ```bash
-# Utiliser le script de déploiement automatique
+# 1. Rendre le script exécutable (une seule fois)
 chmod +x scripts/deploy.sh
+
+# 2. Exécuter le script depuis le terminal
 ./scripts/deploy.sh local
 ```
+
+**Sur Windows**: Utilisez Git Bash ou WSL (Windows Subsystem for Linux) pour exécuter les scripts bash.
 
 Ou manuellement:
 
@@ -70,10 +76,13 @@ supabase functions deploy
 # 4. Créer les utilisateurs démo (automatique au premier lancement)
 ```
 
-Ou utiliser le script de déploiement:
+Ou utiliser le script de déploiement depuis le terminal:
 
 ```bash
+# 1. Rendre le script exécutable (une seule fois)
 chmod +x scripts/deploy.sh
+
+# 2. Exécuter le script
 ./scripts/deploy.sh production
 ```
 
