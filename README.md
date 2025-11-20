@@ -100,6 +100,13 @@ Automated deployment scripts are available in the `scripts/` folder:
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
 
+## 📖 Documentation
+
+- **[🚀 Guide de Démarrage Rapide](docs/QUICKSTART.md)** - Pour les débutants qui n'ont jamais utilisé le terminal
+- [Guide de déploiement complet](DEPLOYMENT.md)
+- [Configuration des administrateurs](docs/ADMIN_SETUP.md)
+- [Scripts utiles](scripts/README.md)
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/c93708a0-f4bb-413a-9e27-1b4454aa0d87) and click on Share -> Publish.
