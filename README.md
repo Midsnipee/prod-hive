@@ -90,6 +90,16 @@ supabase db push
 
 For detailed instructions, see [supabase/README.md](supabase/README.md)
 
+### Deployment Scripts
+
+Automated deployment scripts are available in the `scripts/` folder:
+
+- `deploy.sh` - Automated deployment for local/staging/production
+- `verify-migrations.sh` - Verify migration integrity
+- `reset-database.sh` - Reset database to clean state
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/c93708a0-f4bb-413a-9e27-1b4454aa0d87) and click on Share -> Publish.
