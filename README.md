@@ -103,6 +103,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
 ## 📖 Documentation
 
 - **[🚀 Guide de Démarrage Rapide](docs/QUICKSTART.md)** - Pour les débutants qui n'ont jamais utilisé le terminal
+- **[🐳 Guide Docker](docs/DOCKER.md)** - Déploiement avec Docker et Docker Compose
 - [Guide de déploiement complet](DEPLOYMENT.md)
 - [Configuration des administrateurs](docs/ADMIN_SETUP.md)
 - [Scripts utiles](scripts/README.md)

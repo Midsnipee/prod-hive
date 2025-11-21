@@ -2,6 +2,8 @@
 
 Ce document explique comment déployer l'application depuis le repository GitHub.
 
+> 🐳 **Déploiement Docker** : Pour un déploiement avec Docker, consultez le [Guide Docker](docs/DOCKER.md)
+
 > 🆕 **Débutant?** Consultez d'abord le [Guide de Démarrage Rapide](docs/QUICKSTART.md) avec des instructions visuelles étape par étape!
 
 ## 📋 Prérequis
